@@ -66,10 +66,11 @@
     }
     .fade-in { animation: fadeIn 0.18s ease-out both; }
 
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .spin { animation: spin 0.8s linear infinite; }
+
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .pulse { animation: pulse 1.8s ease-in-out infinite; }
 
     .tabular { font-variant-numeric: tabular-nums; }
 
@@ -108,178 +109,68 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     const EXERCISE_MUSCLE_MAP = {
-      // Chest
-      'Bench Press':                  ['chest'],
-      'Incline Bench Press':          ['chest'],
-      'Decline Bench Press':          ['chest'],
-      'Dumbbell Bench Press':         ['chest'],
-      'Incline Dumbbell Press':       ['chest'],
-      'Decline Dumbbell Press':       ['chest'],
-      'Dumbbell Fly':                 ['chest'],
-      'Incline Dumbbell Fly':         ['chest'],
-      'Cable Fly':                    ['chest'],
-      'High Cable Fly':               ['chest'],
-      'Low Cable Fly':                ['chest'],
-      'Cable Crossover':              ['chest'],
-      'Chest Dip':                    ['chest', 'triceps'],
-      'Push-Up':                      ['chest', 'triceps'],
-      'Wide Push-Up':                 ['chest'],
-      'Machine Chest Press':          ['chest'],
-      'Pec Deck':                     ['chest'],
-      'Svend Press':                  ['chest'],
-      'Landmine Press':               ['chest', 'shoulders'],
-      'Smith Machine Bench Press':    ['chest'],
-      // Back
-      'Deadlift':                     ['back', 'legs'],
-      'Barbell Row':                  ['back'],
-      'Pendlay Row':                  ['back'],
-      'Dumbbell Row':                 ['back'],
-      'Single Arm Dumbbell Row':      ['back'],
-      'T-Bar Row':                    ['back'],
-      'Seated Cable Row':             ['back'],
-      'Lat Pulldown':                 ['back'],
-      'Wide Grip Lat Pulldown':       ['back'],
-      'Close Grip Lat Pulldown':      ['back'],
-      'Pull-Up':                      ['back', 'biceps'],
-      'Chin-Up':                      ['back', 'biceps'],
-      'Neutral Grip Pull-Up':         ['back', 'biceps'],
-      'Assisted Pull-Up':             ['back', 'biceps'],
-      'Cable Row':                    ['back'],
-      'Single Arm Cable Row':         ['back'],
-      'Chest Supported Row':          ['back'],
-      'Meadows Row':                  ['back'],
-      'Rack Pull':                    ['back', 'traps'],
-      'Good Morning':                 ['back', 'legs'],
-      'Back Extension':               ['back'],
-      'Dumbbell Pullover':            ['back', 'chest'],
-      'Straight Arm Pulldown':        ['back'],
-      'Cable Pullover':               ['back'],
-      'Machine Row':                  ['back'],
-      'Reverse Grip Barbell Row':     ['back'],
-      // Shoulders
-      'Overhead Press':               ['shoulders'],
-      'Barbell Overhead Press':       ['shoulders'],
-      'Dumbbell Shoulder Press':      ['shoulders'],
-      'Seated Dumbbell Press':        ['shoulders'],
-      'Arnold Press':                 ['shoulders'],
-      'Smith Machine Overhead Press': ['shoulders'],
-      'Lateral Raise':                ['shoulders'],
-      'Dumbbell Lateral Raise':       ['shoulders'],
-      'Cable Lateral Raise':          ['shoulders'],
-      'Machine Lateral Raise':        ['shoulders'],
-      'Front Raise':                  ['shoulders'],
-      'Dumbbell Front Raise':         ['shoulders'],
-      'Cable Front Raise':            ['shoulders'],
-      'Plate Front Raise':            ['shoulders'],
-      'Face Pulls':                   ['shoulders', 'traps'],
-      'Reverse Flyes':                ['shoulders'],
-      'Dumbbell Reverse Fly':         ['shoulders'],
-      'Cable Reverse Fly':            ['shoulders'],
-      'Upright Row':                  ['shoulders', 'traps'],
-      'Barbell Upright Row':          ['shoulders', 'traps'],
-      'Cable Upright Row':            ['shoulders', 'traps'],
-      'Landmine Lateral Raise':       ['shoulders'],
-      'Bradford Press':               ['shoulders'],
-      // Biceps
-      'Barbell Curl':                 ['biceps'],
-      'EZ Bar Curl':                  ['biceps'],
-      'Dumbbell Curl':                ['biceps'],
-      'Alternating Dumbbell Curl':    ['biceps'],
-      'Hammer Curl':                  ['biceps'],
-      'Cross Body Hammer Curl':       ['biceps'],
-      'Incline Dumbbell Curl':        ['biceps'],
-      'Concentration Curl':           ['biceps'],
-      'Preacher Curl':                ['biceps'],
-      'Cable Curl':                   ['biceps'],
-      'High Cable Curl':              ['biceps'],
-      'Rope Hammer Curl':             ['biceps'],
-      'Spider Curl':                  ['biceps'],
-      'Reverse Curl':                 ['biceps'],
-      'Zottman Curl':                 ['biceps'],
-      'Machine Curl':                 ['biceps'],
-      '21s':                          ['biceps'],
-      // Triceps
-      'Tricep Pushdown':              ['triceps'],
-      'Rope Pushdown':                ['triceps'],
-      'Bar Pushdown':                 ['triceps'],
-      'Overhead Tricep Extension':    ['triceps'],
-      'Skull Crushers':               ['triceps'],
-      'EZ Bar Skull Crusher':         ['triceps'],
-      'Close Grip Bench Press':       ['triceps', 'chest'],
-      'Tricep Dip':                   ['triceps'],
-      'Diamond Push-Up':              ['triceps'],
-      'Dumbbell Kickback':            ['triceps'],
-      'Cable Kickback':               ['triceps'],
-      'JM Press':                     ['triceps'],
-      'Tate Press':                   ['triceps'],
-      'Machine Tricep Press':         ['triceps'],
-      'Single Arm Pushdown':          ['triceps'],
-      // Traps
-      'Shrugs':                       ['traps'],
-      'Barbell Shrug':                ['traps'],
-      'Dumbbell Shrug':               ['traps'],
-      'Cable Shrug':                  ['traps'],
-      'Smith Machine Shrug':          ['traps'],
-      "Farmer's Walk":                ['traps', 'core'],
-      'Power Clean':                  ['traps', 'back', 'legs'],
-      // Legs
-      'Squat':                        ['legs'],
-      'Back Squat':                   ['legs'],
-      'Front Squat':                  ['legs'],
-      'Goblet Squat':                 ['legs'],
-      'Bulgarian Split Squat':        ['legs'],
-      'Leg Press':                    ['legs'],
-      'Romanian Deadlift':            ['legs'],
-      'Stiff Leg Deadlift':           ['legs'],
-      'Sumo Deadlift':                ['legs'],
-      'Leg Curl':                     ['legs'],
-      'Lying Leg Curl':               ['legs'],
-      'Seated Leg Curl':              ['legs'],
-      'Leg Extension':                ['legs'],
-      'Calf Raise':                   ['legs'],
-      'Standing Calf Raise':          ['legs'],
-      'Seated Calf Raise':            ['legs'],
-      'Donkey Calf Raise':            ['legs'],
-      'Hack Squat':                   ['legs'],
-      'Sumo Squat':                   ['legs'],
-      'Walking Lunge':                ['legs'],
-      'Reverse Lunge':                ['legs'],
-      'Step Up':                      ['legs'],
-      'Hip Thrust':                   ['legs'],
-      'Glute Bridge':                 ['legs'],
-      'Hip Abduction':                ['legs'],
-      'Hip Adduction':                ['legs'],
-      'Leg Press Calf Raise':         ['legs'],
-      'Smith Machine Squat':          ['legs'],
-      'Box Squat':                    ['legs'],
-      'Pause Squat':                  ['legs'],
-      'Single Leg Press':             ['legs'],
-      'Cable Pull Through':           ['legs'],
-      // Core
-      'Cable Crunch':                 ['core'],
-      'Hanging Leg Raise':            ['core'],
-      'Hanging Knee Raise':           ['core'],
-      'Plank':                        ['core'],
-      'Side Plank':                   ['core'],
-      'Ab Wheel Rollout':             ['core'],
-      'Crunch':                       ['core'],
-      'Bicycle Crunch':               ['core'],
-      'Russian Twist':                ['core'],
-      'Leg Raise':                    ['core'],
-      'Reverse Crunch':               ['core'],
-      'Dragon Flag':                  ['core'],
-      'Wood Chop':                    ['core'],
-      'Pallof Press':                 ['core'],
-      'Dead Bug':                     ['core'],
-      'Bird Dog':                     ['core'],
-      'Hollow Body Hold':             ['core'],
-      'V-Up':                         ['core'],
-      'Sit-Up':                       ['core'],
-      'Decline Sit-Up':               ['core'],
-      'Toe Touch':                    ['core'],
-      'Mountain Climber':             ['core'],
-      'Toes to Bar':                  ['core'],
-      'Cable Woodchop':               ['core'],
+      'Bench Press':['chest'],'Incline Bench Press':['chest'],'Decline Bench Press':['chest'],
+      'Dumbbell Bench Press':['chest'],'Incline Dumbbell Press':['chest'],'Decline Dumbbell Press':['chest'],
+      'Dumbbell Fly':['chest'],'Incline Dumbbell Fly':['chest'],'Cable Fly':['chest'],
+      'High Cable Fly':['chest'],'Low Cable Fly':['chest'],'Cable Crossover':['chest'],
+      'Chest Dip':['chest','triceps'],'Push-Up':['chest','triceps'],'Wide Push-Up':['chest'],
+      'Machine Chest Press':['chest'],'Pec Deck':['chest'],'Svend Press':['chest'],
+      'Landmine Press':['chest','shoulders'],'Smith Machine Bench Press':['chest'],
+      'Deadlift':['back','legs'],'Barbell Row':['back'],'Pendlay Row':['back'],
+      'Dumbbell Row':['back'],'Single Arm Dumbbell Row':['back'],'T-Bar Row':['back'],
+      'Seated Cable Row':['back'],'Lat Pulldown':['back'],'Wide Grip Lat Pulldown':['back'],
+      'Close Grip Lat Pulldown':['back'],'Pull-Up':['back','biceps'],'Chin-Up':['back','biceps'],
+      'Neutral Grip Pull-Up':['back','biceps'],'Assisted Pull-Up':['back','biceps'],
+      'Cable Row':['back'],'Single Arm Cable Row':['back'],'Chest Supported Row':['back'],
+      'Meadows Row':['back'],'Rack Pull':['back','traps'],'Good Morning':['back','legs'],
+      'Back Extension':['back'],'Dumbbell Pullover':['back','chest'],'Straight Arm Pulldown':['back'],
+      'Cable Pullover':['back'],'Machine Row':['back'],'Reverse Grip Barbell Row':['back'],
+      'Overhead Press':['shoulders'],'Barbell Overhead Press':['shoulders'],
+      'Dumbbell Shoulder Press':['shoulders'],'Seated Dumbbell Press':['shoulders'],
+      'Arnold Press':['shoulders'],'Smith Machine Overhead Press':['shoulders'],
+      'Lateral Raise':['shoulders'],'Dumbbell Lateral Raise':['shoulders'],
+      'Cable Lateral Raise':['shoulders'],'Machine Lateral Raise':['shoulders'],
+      'Front Raise':['shoulders'],'Dumbbell Front Raise':['shoulders'],
+      'Cable Front Raise':['shoulders'],'Plate Front Raise':['shoulders'],
+      'Face Pulls':['shoulders','traps'],'Reverse Flyes':['shoulders'],
+      'Dumbbell Reverse Fly':['shoulders'],'Cable Reverse Fly':['shoulders'],
+      'Upright Row':['shoulders','traps'],'Barbell Upright Row':['shoulders','traps'],
+      'Cable Upright Row':['shoulders','traps'],'Landmine Lateral Raise':['shoulders'],
+      'Bradford Press':['shoulders'],
+      'Barbell Curl':['biceps'],'EZ Bar Curl':['biceps'],'Dumbbell Curl':['biceps'],
+      'Alternating Dumbbell Curl':['biceps'],'Hammer Curl':['biceps'],
+      'Cross Body Hammer Curl':['biceps'],'Incline Dumbbell Curl':['biceps'],
+      'Concentration Curl':['biceps'],'Preacher Curl':['biceps'],'Cable Curl':['biceps'],
+      'High Cable Curl':['biceps'],'Rope Hammer Curl':['biceps'],'Spider Curl':['biceps'],
+      'Reverse Curl':['biceps'],'Zottman Curl':['biceps'],'Machine Curl':['biceps'],'21s':['biceps'],
+      'Tricep Pushdown':['triceps'],'Rope Pushdown':['triceps'],'Bar Pushdown':['triceps'],
+      'Overhead Tricep Extension':['triceps'],'Skull Crushers':['triceps'],
+      'EZ Bar Skull Crusher':['triceps'],'Close Grip Bench Press':['triceps','chest'],
+      'Tricep Dip':['triceps'],'Diamond Push-Up':['triceps'],'Dumbbell Kickback':['triceps'],
+      'Cable Kickback':['triceps'],'JM Press':['triceps'],'Tate Press':['triceps'],
+      'Machine Tricep Press':['triceps'],'Single Arm Pushdown':['triceps'],
+      'Shrugs':['traps'],'Barbell Shrug':['traps'],'Dumbbell Shrug':['traps'],
+      'Cable Shrug':['traps'],'Smith Machine Shrug':['traps'],
+      "Farmer's Walk":['traps','core'],'Power Clean':['traps','back','legs'],
+      'Squat':['legs'],'Back Squat':['legs'],'Front Squat':['legs'],'Goblet Squat':['legs'],
+      'Bulgarian Split Squat':['legs'],'Leg Press':['legs'],'Romanian Deadlift':['legs'],
+      'Stiff Leg Deadlift':['legs'],'Sumo Deadlift':['legs'],'Leg Curl':['legs'],
+      'Lying Leg Curl':['legs'],'Seated Leg Curl':['legs'],'Leg Extension':['legs'],
+      'Calf Raise':['legs'],'Standing Calf Raise':['legs'],'Seated Calf Raise':['legs'],
+      'Donkey Calf Raise':['legs'],'Hack Squat':['legs'],'Sumo Squat':['legs'],
+      'Walking Lunge':['legs'],'Reverse Lunge':['legs'],'Step Up':['legs'],
+      'Hip Thrust':['legs'],'Glute Bridge':['legs'],'Hip Abduction':['legs'],
+      'Hip Adduction':['legs'],'Leg Press Calf Raise':['legs'],'Smith Machine Squat':['legs'],
+      'Box Squat':['legs'],'Pause Squat':['legs'],'Single Leg Press':['legs'],
+      'Cable Pull Through':['legs'],
+      'Cable Crunch':['core'],'Hanging Leg Raise':['core'],'Hanging Knee Raise':['core'],
+      'Plank':['core'],'Side Plank':['core'],'Ab Wheel Rollout':['core'],'Crunch':['core'],
+      'Bicycle Crunch':['core'],'Russian Twist':['core'],'Leg Raise':['core'],
+      'Reverse Crunch':['core'],'Dragon Flag':['core'],'Wood Chop':['core'],
+      'Pallof Press':['core'],'Dead Bug':['core'],'Bird Dog':['core'],
+      'Hollow Body Hold':['core'],'V-Up':['core'],'Sit-Up':['core'],
+      'Decline Sit-Up':['core'],'Toe Touch':['core'],'Mountain Climber':['core'],
+      'Toes to Bar':['core'],'Cable Woodchop':['core'],
     };
 
     const ALL_EXERCISE_NAMES = Object.keys(EXERCISE_MUSCLE_MAP).sort();
@@ -289,50 +180,29 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     const SPLITS = [
-      {
-        id: 'chest_back',
-        label: 'Chest / Back',
-        muscles: ['chest', 'back'],
-        defaults: ['Bench Press','Incline Dumbbell Press','Cable Fly','Lat Pulldown','Seated Cable Row','Dumbbell Pullover'],
-      },
-      {
-        id: 'bis_tris',
-        label: 'Biceps / Triceps',
-        muscles: ['biceps', 'triceps'],
-        defaults: ['Barbell Curl','Hammer Curl','Incline Dumbbell Curl','Preacher Curl','Tricep Pushdown','Skull Crushers','Overhead Tricep Extension','Close Grip Bench Press'],
-      },
-      {
-        id: 'shoulders',
-        label: 'Shoulders',
-        muscles: ['shoulders'],
-        defaults: ['Overhead Press','Lateral Raise','Front Raise','Face Pulls','Reverse Flyes','Arnold Press','Cable Lateral Raise','Upright Row'],
-      },
-      {
-        id: 'legs_abs',
-        label: 'Legs / Abs',
-        muscles: ['legs', 'core'],
-        defaults: ['Squat','Leg Press','Romanian Deadlift','Leg Curl','Leg Extension','Calf Raise','Cable Crunch','Hanging Leg Raise','Plank'],
-      },
-      {
-        id: 'back_traps',
-        label: 'Back / Traps',
-        muscles: ['back', 'traps'],
-        defaults: ['Deadlift','Barbell Row','T-Bar Row','Lat Pulldown','Seated Cable Row','Shrugs','Face Pulls'],
-      },
+      { id:'chest_back', label:'Chest / Back', muscles:['chest','back'],
+        defaults:['Bench Press','Incline Dumbbell Press','Cable Fly','Lat Pulldown','Seated Cable Row','Dumbbell Pullover'] },
+      { id:'bis_tris', label:'Biceps / Triceps', muscles:['biceps','triceps'],
+        defaults:['Barbell Curl','Hammer Curl','Incline Dumbbell Curl','Preacher Curl','Tricep Pushdown','Skull Crushers','Overhead Tricep Extension','Close Grip Bench Press'] },
+      { id:'shoulders', label:'Shoulders', muscles:['shoulders'],
+        defaults:['Overhead Press','Lateral Raise','Front Raise','Face Pulls','Reverse Flyes','Arnold Press','Cable Lateral Raise','Upright Row'] },
+      { id:'legs_abs', label:'Legs / Abs', muscles:['legs','core'],
+        defaults:['Squat','Leg Press','Romanian Deadlift','Leg Curl','Leg Extension','Calf Raise','Cable Crunch','Hanging Leg Raise','Plank'] },
+      { id:'back_traps', label:'Back / Traps', muscles:['back','traps'],
+        defaults:['Deadlift','Barbell Row','T-Bar Row','Lat Pulldown','Seated Cable Row','Shrugs','Face Pulls'] },
     ];
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Exercise frequency engine
+    // Frequency + suggestion engine
     // ─────────────────────────────────────────────────────────────────────────
 
     function buildExerciseFrequency(workoutsData) {
       const freq = {};
       if (!workoutsData) return freq;
-      Object.values(workoutsData).forEach(workout => {
-        if (!workout.exercises) return;
-        Object.values(workout.exercises).forEach(ex => {
-          if (!ex.name) return;
-          freq[ex.name] = (freq[ex.name] || 0) + 1;
+      Object.values(workoutsData).forEach(w => {
+        if (!w.exercises) return;
+        Object.values(w.exercises).forEach(ex => {
+          if (ex.name) freq[ex.name] = (freq[ex.name] || 0) + 1;
         });
       });
       return freq;
@@ -340,25 +210,38 @@
 
     function getSuggestions(split, frequency) {
       if (split.id === 'free') return [];
-
-      // All exercises whose muscles overlap with the split's muscles
       const relevant = Object.entries(EXERCISE_MUSCLE_MAP)
-        .filter(([, muscles]) => muscles.some(m => split.muscles.includes(m)))
-        .map(([name]) => name);
-
-      // Sort by frequency descending, then alphabetically
-      const byFreq = [...relevant].sort((a, b) => {
-        const fa = frequency[a] || 0, fb = frequency[b] || 0;
-        if (fb !== fa) return fb - fa;
-        return a.localeCompare(b);
+        .filter(([,m]) => m.some(g => split.muscles.includes(g))).map(([n]) => n);
+      const byFreq = [...relevant].sort((a,b) => {
+        const d = (frequency[b]||0) - (frequency[a]||0);
+        return d !== 0 ? d : a.localeCompare(b);
       });
-
-      // Merge: frequency-sorted first, then defaults not already included
       const seen = new Set(byFreq);
       const merged = [...byFreq];
       split.defaults.forEach(d => { if (!seen.has(d)) merged.push(d); });
-
       return merged.map(name => ({ name, selected: split.defaults.includes(name) }));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Last-weight map (for pre-filling sets)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function buildLastWeightMap(workoutsData) {
+      const map = {};
+      if (!workoutsData) return map;
+      // Process dates newest-first so first encounter = most recent
+      const dates = Object.keys(workoutsData).sort().reverse();
+      dates.forEach(date => {
+        const w = workoutsData[date];
+        if (!w.exercises) return;
+        Object.values(w.exercises).forEach(ex => {
+          if (!ex.name || map[ex.name] !== undefined) return;
+          if (!ex.sets) return;
+          const maxW = Math.max(0, ...Object.values(ex.sets).map(s => parseFloat(s.weight) || 0));
+          if (maxW > 0) map[ex.name] = maxW;
+        });
+      });
+      return map;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -377,160 +260,135 @@
       return [data, loading];
     }
 
-    const fbSet    = (path, value)   => db.ref(path).set(value);
-    const fbUpdate = (path, updates) => db.ref(path).update(updates);
-    const fbPush   = (path, value)   => db.ref(path).push(value);
-    const fbRemove = (path)          => db.ref(path).remove();
+    const fbSet    = (path, v)   => db.ref(path).set(v);
+    const fbUpdate = (path, v)   => db.ref(path).update(v);
+    const fbPush   = (path, v)   => db.ref(path).push(v);
+    const fbRemove = (path)      => db.ref(path).remove();
 
-    const localGet = (key) => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
-    const localSet = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
+    const localGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+    const localSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
     async function seedExerciseNames() {
       const snap = await db.ref('drea/exerciseNames').once('value');
       if (snap.val()) return;
-      const updates = {};
-      ALL_EXERCISE_NAMES.forEach(name => {
-        updates[db.ref('drea/exerciseNames').push().key] = name;
-      });
-      await db.ref('drea/exerciseNames').set(updates);
+      const upd = {};
+      ALL_EXERCISE_NAMES.forEach(n => { upd[db.ref('drea/exerciseNames').push().key] = n; });
+      await db.ref('drea/exerciseNames').set(upd);
     }
 
-    function todayKey() {
-      return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    function todayKey() { return new Date().toISOString().slice(0, 10); }
+    let _uid = 0;
+    const uid = () => `${Date.now()}_${++_uid}`;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Elapsed-time hook
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function useElapsedMinutes(startTime) {
+      const [elapsed, setElapsed] = useState(0);
+      useEffect(() => {
+        if (!startTime) return;
+        const tick = () => setElapsed(Math.floor((Date.now() - startTime) / 60000));
+        tick();
+        const id = setInterval(tick, 15000);
+        return () => clearInterval(id);
+      }, [startTime]);
+      return elapsed;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // SVG Icons
     // ─────────────────────────────────────────────────────────────────────────
 
-    function IconToday({ size = 22, color = 'currentColor' }) {
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-          stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="4" width="18" height="18" rx="3" />
-          <line x1="3" y1="9" x2="21" y2="9" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <circle cx="12" cy="15" r="1.5" fill={color} stroke="none" />
-        </svg>
-      );
-    }
+    const svgBase = (size, color, sw='1.75') => ({
+      width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
+      stroke: color, strokeWidth: sw, strokeLinecap: 'round', strokeLinejoin: 'round',
+    });
 
-    function IconHistory({ size = 22, color = 'currentColor' }) {
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-          stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="9" />
-          <polyline points="12 7 12 12 15.5 14" />
-        </svg>
-      );
+    function IconToday({ size=22, color='currentColor' }) {
+      return <svg {...svgBase(size,color)}>
+        <rect x="3" y="4" width="18" height="18" rx="3"/>
+        <line x1="3" y1="9" x2="21" y2="9"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <circle cx="12" cy="15" r="1.5" fill={color} stroke="none"/>
+      </svg>;
     }
-
-    function IconYou({ size = 22, color = 'currentColor' }) {
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-          stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="8" r="4" />
-          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-        </svg>
-      );
+    function IconHistory({ size=22, color='currentColor' }) {
+      return <svg {...svgBase(size,color)}>
+        <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>
+      </svg>;
     }
-
-    function IconCheck({ size = 16, color = 'currentColor' }) {
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-          stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
-      );
+    function IconYou({ size=22, color='currentColor' }) {
+      return <svg {...svgBase(size,color)}>
+        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      </svg>;
     }
-
-    function IconChevronLeft({ size = 20, color = 'currentColor' }) {
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-          stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
-      );
+    function IconCheck({ size=16, color='currentColor' }) {
+      return <svg {...svgBase(size,color,'2.5')}><polyline points="20 6 9 17 4 12"/></svg>;
     }
-
-    function IconChevronRight({ size = 18, color = 'currentColor' }) {
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-          stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-      );
+    function IconChevronLeft({ size=20, color='currentColor' }) {
+      return <svg {...svgBase(size,color,'2')}><polyline points="15 18 9 12 15 6"/></svg>;
     }
-
-    function IconDumbbell({ size = 32, color = '#D4A574' }) {
-      return (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-          stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 4v16M18 4v16" />
-          <path d="M4 7h4M16 7h4M4 17h4M16 17h4" />
-          <line x1="8" y1="12" x2="16" y2="12" />
-        </svg>
-      );
+    function IconChevronRight({ size=18, color='currentColor' }) {
+      return <svg {...svgBase(size,color,'2')}><polyline points="9 18 15 12 9 6"/></svg>;
     }
-
-    // Per-split icons
-    function SplitIcon({ id, size = 26, color = '#D4A574' }) {
-      const s = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: '1.75', strokeLinecap: 'round', strokeLinejoin: 'round' };
-      if (id === 'chest_back') return (
-        <svg {...s}>
-          <rect x="3" y="10" width="18" height="4" rx="2" />
-          <rect x="1" y="7" width="4" height="10" rx="2" />
-          <rect x="19" y="7" width="4" height="10" rx="2" />
-          <line x1="7" y1="12" x2="17" y2="12" />
-        </svg>
-      );
-      if (id === 'bis_tris') return (
-        <svg {...s}>
-          <path d="M6 18 Q4 12 8 8 Q12 4 14 8" />
-          <path d="M14 8 Q18 12 16 18" />
-          <line x1="6" y1="18" x2="16" y2="18" />
-        </svg>
-      );
-      if (id === 'shoulders') return (
-        <svg {...s}>
-          <circle cx="12" cy="6" r="2" />
-          <path d="M5 12 Q8 8 12 8 Q16 8 19 12" />
-          <line x1="2" y1="12" x2="6" y2="12" />
-          <line x1="18" y1="12" x2="22" y2="12" />
-          <line x1="12" y1="8" x2="12" y2="20" />
-        </svg>
-      );
-      if (id === 'legs_abs') return (
-        <svg {...s}>
-          <path d="M8 3 L8 12 L5 21" />
-          <path d="M16 3 L16 12 L19 21" />
-          <line x1="8" y1="12" x2="16" y2="12" />
-          <line x1="7" y1="3" x2="17" y2="3" />
-        </svg>
-      );
-      if (id === 'back_traps') return (
-        <svg {...s}>
-          <path d="M5 20 Q5 10 12 7 Q19 10 19 20" />
-          <path d="M9 14 Q12 11 15 14" />
-          <path d="M8 17 Q12 14 16 17" />
-        </svg>
-      );
-      // free
-      return (
-        <svg {...s}>
-          <circle cx="12" cy="12" r="9" />
-          <line x1="12" y1="8" x2="12" y2="16" />
-          <line x1="8" y1="12" x2="16" y2="12" />
-        </svg>
-      );
+    function IconX({ size=16, color='currentColor' }) {
+      return <svg {...svgBase(size,color,'2')}>
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>;
+    }
+    function IconPlus({ size=16, color='currentColor' }) {
+      return <svg {...svgBase(size,color,'2')}>
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>;
+    }
+    function IconDumbbell({ size=32, color='#D4A574' }) {
+      return <svg {...svgBase(size,color)}>
+        <path d="M6 4v16M18 4v16"/>
+        <path d="M4 7h4M16 7h4M4 17h4M16 17h4"/>
+        <line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>;
+    }
+    function SplitIcon({ id, size=26, color='#D4A574' }) {
+      const p = svgBase(size, color);
+      if (id === 'chest_back') return <svg {...p}>
+        <rect x="3" y="10" width="18" height="4" rx="2"/>
+        <rect x="1" y="7" width="4" height="10" rx="2"/>
+        <rect x="19" y="7" width="4" height="10" rx="2"/>
+        <line x1="7" y1="12" x2="17" y2="12"/>
+      </svg>;
+      if (id === 'bis_tris') return <svg {...p}>
+        <path d="M6 18 Q4 12 8 8 Q12 4 14 8"/>
+        <path d="M14 8 Q18 12 16 18"/>
+        <line x1="6" y1="18" x2="16" y2="18"/>
+      </svg>;
+      if (id === 'shoulders') return <svg {...p}>
+        <circle cx="12" cy="6" r="2"/>
+        <path d="M5 12 Q8 8 12 8 Q16 8 19 12"/>
+        <line x1="2" y1="12" x2="6" y2="12"/>
+        <line x1="18" y1="12" x2="22" y2="12"/>
+        <line x1="12" y1="8" x2="12" y2="20"/>
+      </svg>;
+      if (id === 'legs_abs') return <svg {...p}>
+        <path d="M8 3 L8 12 L5 21"/><path d="M16 3 L16 12 L19 21"/>
+        <line x1="8" y1="12" x2="16" y2="12"/><line x1="7" y1="3" x2="17" y2="3"/>
+      </svg>;
+      if (id === 'back_traps') return <svg {...p}>
+        <path d="M5 20 Q5 10 12 7 Q19 10 19 20"/>
+        <path d="M9 14 Q12 11 15 14"/><path d="M8 17 Q12 14 16 17"/>
+      </svg>;
+      return <svg {...p}>
+        <circle cx="12" cy="12" r="9"/>
+        <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+      </svg>;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
     // ExerciseInput — reusable autocomplete
     // ─────────────────────────────────────────────────────────────────────────
 
-    function ExerciseInput({ value, onChange, onSelect, exerciseNames = [], placeholder = 'Exercise name...' }) {
+    function ExerciseInput({ value, onChange, onSelect, exerciseNames=[], placeholder='Exercise name...' }) {
       const [open, setOpen]   = useState(false);
       const [query, setQuery] = useState(value || '');
       const closeTimer        = useRef(null);
@@ -540,57 +398,35 @@
       const suggestions = useMemo(() => {
         const q = query.trim().toLowerCase();
         const pool = exerciseNames.length ? exerciseNames : ALL_EXERCISE_NAMES;
-        if (!q) return pool.slice(0, 10);
-        return pool.filter(n => n.toLowerCase().includes(q)).slice(0, 10);
+        return q ? pool.filter(n => n.toLowerCase().includes(q)).slice(0, 10) : pool.slice(0, 10);
       }, [query, exerciseNames]);
 
-      const handleChange = (e) => {
-        const val = e.target.value;
-        setQuery(val);
-        onChange && onChange(val);
-        setOpen(true);
-      };
-
       const handleSelect = (name) => {
-        setQuery(name);
-        onChange && onChange(name);
-        onSelect && onSelect(name);
-        setOpen(false);
+        setQuery(name); onChange && onChange(name); onSelect && onSelect(name); setOpen(false);
       };
 
       return (
         <div style={{ position: 'relative', width: '100%' }}>
-          <input
-            type="text"
-            value={query}
-            onChange={handleChange}
+          <input type="text" value={query}
+            onChange={e => { setQuery(e.target.value); onChange && onChange(e.target.value); setOpen(true); }}
             onFocus={() => { clearTimeout(closeTimer.current); setOpen(true); }}
             onBlur={() => { closeTimer.current = setTimeout(() => setOpen(false), 150); }}
             placeholder={placeholder}
             autoComplete="off" autoCorrect="off" autoCapitalize="words" spellCheck="false"
-            style={{
-              width: '100%', background: '#222', border: '1px solid #2e2e2e',
-              borderRadius: 10, padding: '10px 14px', color: '#F0EDE8',
-              fontSize: 15, fontWeight: 500, outline: 'none',
-            }}
+            style={{ width:'100%', background:'#222', border:'1px solid #2e2e2e', borderRadius:10,
+              padding:'9px 13px', color:'#F0EDE8', fontSize:15, fontWeight:500, outline:'none' }}
           />
           {open && suggestions.length > 0 && (
-            <div style={{
-              position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
-              background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 10,
-              overflow: 'hidden', zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-            }}>
+            <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0,
+              background:'#1e1e1e', border:'1px solid #2e2e2e', borderRadius:10,
+              overflow:'hidden', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,0.6)' }}>
               {suggestions.map(name => (
                 <button key={name} onMouseDown={() => handleSelect(name)}
-                  style={{
-                    display: 'block', width: '100%', textAlign: 'left',
-                    padding: '11px 14px', background: 'none', border: 'none',
-                    borderBottom: '1px solid #262626', color: '#F0EDE8',
-                    fontSize: 14, cursor: 'pointer',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#2a2a2a'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
-                >
+                  style={{ display:'block', width:'100%', textAlign:'left',
+                    padding:'11px 14px', background:'none', border:'none',
+                    borderBottom:'1px solid #262626', color:'#F0EDE8', fontSize:14, cursor:'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.background='#2a2a2a'}
+                  onMouseLeave={e => e.currentTarget.style.background='none'}>
                   {name}
                 </button>
               ))}
@@ -606,159 +442,113 @@
 
     function SeedingScreen() {
       return (
-        <div style={{ height: '100dvh', background: '#0f0f0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <div style={{ height:'100dvh', background:'#0f0f0f', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16 }}>
           <svg className="spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D4A574" strokeWidth="2" strokeLinecap="round">
-            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
           </svg>
-          <p style={{ color: '#8A8680', fontSize: 13 }}>Setting up your exercise library...</p>
+          <p style={{ color:'#8A8680', fontSize:13 }}>Setting up your exercise library...</p>
         </div>
       );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Today tab — state machine
+    // Split picker — Step 1 (choose split)
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Step 1: Choose a split
     function SplitPickerStep1({ onSelect, onCancel }) {
-      const FREE = { id: 'free', label: 'Free Workout', muscles: [] };
+      const FREE = { id:'free', label:'Free Workout', muscles:[] };
       return (
-        <div className="fade-in" style={{ padding: '20px 20px 32px' }}>
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div className="fade-in" style={{ padding:'20px 20px 32px' }}>
+          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24 }}>
             <div>
-              <h2 style={{ fontSize: 20, fontWeight: 700, color: '#F0EDE8', lineHeight: 1.2 }}>What are you training?</h2>
-              <p style={{ fontSize: 13, color: '#8A8680', marginTop: 4 }}>Pick a split for exercise suggestions.</p>
+              <h2 style={{ fontSize:20, fontWeight:700, color:'#F0EDE8', lineHeight:1.2 }}>What are you training?</h2>
+              <p style={{ fontSize:13, color:'#8A8680', marginTop:4 }}>Pick a split for exercise suggestions.</p>
             </div>
-            <button onClick={onCancel} style={{ background: 'none', border: 'none', color: '#8A8680', fontSize: 14, cursor: 'pointer', padding: '4px 0' }}>
-              Cancel
-            </button>
+            <button onClick={onCancel} style={{ background:'none', border:'none', color:'#8A8680', fontSize:14, cursor:'pointer', paddingTop:2 }}>Cancel</button>
           </div>
-
-          {/* Split cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             {SPLITS.map(split => (
-              <button
-                key={split.id}
+              <button key={split.id}
                 onClick={() => { navigator.vibrate && navigator.vibrate(10); onSelect(split); }}
                 className="press-scale"
-                style={{
-                  background: '#1a1a1a', border: '1px solid #262626', borderRadius: 14,
-                  padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16,
-                  cursor: 'pointer', textAlign: 'left', width: '100%',
-                }}
-              >
-                <div style={{ flexShrink: 0 }}>
-                  <SplitIcon id={split.id} size={26} color="#D4A574" />
+                style={{ background:'#1a1a1a', border:'1px solid #262626', borderRadius:14,
+                  padding:'15px 18px', display:'flex', alignItems:'center', gap:16,
+                  cursor:'pointer', textAlign:'left', width:'100%' }}>
+                <SplitIcon id={split.id} size={26} color="#D4A574"/>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ fontSize:15, fontWeight:600, color:'#F0EDE8' }}>{split.label}</div>
+                  <div style={{ fontSize:12, color:'#8A8680', marginTop:3 }}>{split.defaults.slice(0,3).join(' · ')}</div>
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: '#F0EDE8' }}>{split.label}</div>
-                  <div style={{ fontSize: 12, color: '#8A8680', marginTop: 3 }}>
-                    {split.defaults.slice(0, 3).join(' · ')}
-                  </div>
-                </div>
-                <IconChevronRight size={16} color="#4A4744" />
+                <IconChevronRight size={16} color="#4A4744"/>
               </button>
             ))}
-
-            {/* Free workout — dashed border */}
-            <button
-              onClick={() => { navigator.vibrate && navigator.vibrate(10); onSelect(FREE); }}
+            <button onClick={() => { navigator.vibrate && navigator.vibrate(10); onSelect(FREE); }}
               className="press-scale"
-              style={{
-                background: 'transparent', border: '1.5px dashed #2e2e2e', borderRadius: 14,
-                padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16,
-                cursor: 'pointer', textAlign: 'left', width: '100%', marginTop: 4,
-              }}
-            >
-              <div style={{ flexShrink: 0 }}>
-                <SplitIcon id="free" size={26} color="#8A8680" />
+              style={{ background:'transparent', border:'1.5px dashed #2e2e2e', borderRadius:14,
+                padding:'15px 18px', display:'flex', alignItems:'center', gap:16,
+                cursor:'pointer', textAlign:'left', width:'100%', marginTop:4 }}>
+              <SplitIcon id="free" size={26} color="#8A8680"/>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:15, fontWeight:600, color:'#F0EDE8' }}>Free Workout</div>
+                <div style={{ fontSize:12, color:'#8A8680', marginTop:3 }}>Log anything — no suggestions</div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 15, fontWeight: 600, color: '#F0EDE8' }}>Free Workout</div>
-                <div style={{ fontSize: 12, color: '#8A8680', marginTop: 3 }}>Log anything — no suggestions</div>
-              </div>
-              <IconChevronRight size={16} color="#4A4744" />
+              <IconChevronRight size={16} color="#4A4744"/>
             </button>
           </div>
         </div>
       );
     }
 
-    // Step 2: Toggle exercises
+    // ─────────────────────────────────────────────────────────────────────────
+    // Split picker — Step 2 (toggle exercises)
+    // ─────────────────────────────────────────────────────────────────────────
+
     function SplitPickerStep2({ split, exercises, onToggle, onBack, onCancel, onStart }) {
       const selectedCount = exercises.filter(e => e.selected).length;
       return (
-        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Header */}
-          <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <button onClick={onBack}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: '#8A8680' }}>
-                <IconChevronLeft size={20} color="#8A8680" />
+        <div className="fade-in" style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+          <div style={{ padding:'16px 20px 14px', borderBottom:'1px solid #1e1e1e', flexShrink:0 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', padding:4, display:'flex', alignItems:'center' }}>
+                <IconChevronLeft size={20} color="#8A8680"/>
               </button>
-              <div style={{ flex: 1 }}>
-                <h2 style={{ fontSize: 17, fontWeight: 700, color: '#F0EDE8' }}>{split.label}</h2>
-                <p style={{ fontSize: 12, color: '#8A8680', marginTop: 2 }}>Tap to add or remove exercises.</p>
+              <div style={{ flex:1 }}>
+                <h2 style={{ fontSize:17, fontWeight:700, color:'#F0EDE8' }}>{split.label}</h2>
+                <p style={{ fontSize:12, color:'#8A8680', marginTop:2 }}>Tap to add or remove exercises.</p>
               </div>
-              <button onClick={onCancel} style={{ background: 'none', border: 'none', color: '#8A8680', fontSize: 13, cursor: 'pointer' }}>
-                Cancel
-              </button>
+              <button onClick={onCancel} style={{ background:'none', border:'none', color:'#8A8680', fontSize:13, cursor:'pointer' }}>Cancel</button>
             </div>
           </div>
-
-          {/* Exercise list */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
+          <div style={{ flex:1, overflowY:'auto', padding:'12px 20px' }}>
             {exercises.map((ex, i) => (
-              <button
-                key={ex.name}
-                onClick={() => onToggle(i)}
-                className="press-scale"
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 14, width: '100%',
-                  padding: '12px 14px', marginBottom: 6,
+              <button key={ex.name} onClick={() => onToggle(i)} className="press-scale"
+                style={{ display:'flex', alignItems:'center', gap:14, width:'100%',
+                  padding:'12px 14px', marginBottom:6,
                   background: ex.selected ? 'rgba(212,165,116,0.07)' : '#1a1a1a',
-                  border: `1px solid ${ex.selected ? '#D4A574' : '#262626'}`,
-                  borderRadius: 11, cursor: 'pointer', textAlign: 'left',
-                  opacity: ex.selected ? 1 : 0.55, transition: 'all 0.15s',
-                }}
-              >
-                {/* Checkbox */}
-                <div style={{
-                  width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                  border:`1px solid ${ex.selected ? '#D4A574' : '#262626'}`,
+                  borderRadius:11, cursor:'pointer', textAlign:'left',
+                  opacity: ex.selected ? 1 : 0.55, transition:'all 0.15s' }}>
+                <div style={{ width:20, height:20, borderRadius:6, flexShrink:0,
                   background: ex.selected ? '#D4A574' : 'transparent',
-                  border: `1.5px solid ${ex.selected ? '#D4A574' : '#3a3a3a'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'all 0.15s',
-                }}>
-                  {ex.selected && <IconCheck size={11} color="#0f0f0f" />}
+                  border:`1.5px solid ${ex.selected ? '#D4A574' : '#3a3a3a'}`,
+                  display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }}>
+                  {ex.selected && <IconCheck size={11} color="#0f0f0f"/>}
                 </div>
-                <span style={{ fontSize: 14, fontWeight: 500, color: '#F0EDE8' }}>{ex.name}</span>
+                <span style={{ fontSize:14, fontWeight:500, color:'#F0EDE8' }}>{ex.name}</span>
               </button>
             ))}
-            {/* Bottom padding so last item clears the sticky footer */}
-            <div style={{ height: 90 }} />
+            <div style={{ height:90 }}/>
           </div>
-
-          {/* Sticky bottom bar */}
-          <div style={{
-            position: 'absolute', bottom: 0, left: 0, right: 0,
-            padding: '12px 20px', background: '#0f0f0f',
-            borderTop: '1px solid #1e1e1e',
-            paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
-          }}>
-            <button
-              onClick={() => { navigator.vibrate && navigator.vibrate(20); onStart(); }}
-              disabled={selectedCount === 0}
-              className="press-scale"
-              style={{
-                width: '100%', padding: '14px 20px', borderRadius: 12, border: 'none',
+          <div style={{ position:'absolute', bottom:0, left:0, right:0,
+            padding:'12px 20px', background:'#0f0f0f', borderTop:'1px solid #1e1e1e',
+            paddingBottom:'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
+            <button onClick={() => { navigator.vibrate && navigator.vibrate(20); onStart(); }}
+              disabled={selectedCount === 0} className="press-scale"
+              style={{ width:'100%', padding:'14px 20px', borderRadius:12, border:'none',
                 background: selectedCount > 0 ? '#D4A574' : '#2a2a2a',
                 color: selectedCount > 0 ? '#0f0f0f' : '#4A4744',
-                fontSize: 15, fontWeight: 700, cursor: selectedCount > 0 ? 'pointer' : 'default',
-                transition: 'background 0.2s, color 0.2s',
-              }}
-            >
+                fontSize:15, fontWeight:700, cursor: selectedCount > 0 ? 'pointer' : 'default',
+                transition:'background 0.2s, color 0.2s' }}>
               {selectedCount > 0 ? `Start Workout (${selectedCount})` : 'Select at least one exercise'}
             </button>
           </div>
@@ -766,30 +556,298 @@
       );
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Active workout logger
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function SetRow({ setNum, set, onChange, onRemove, autoFocusWeight }) {
+      const weightRef = useRef(null);
+      useEffect(() => {
+        if (autoFocusWeight && weightRef.current) {
+          weightRef.current.focus();
+          weightRef.current.select();
+        }
+      }, [autoFocusWeight]);
+
+      const inputBase = {
+        background:'#242424', border:'1px solid #2e2e2e', borderRadius:8,
+        color:'#F0EDE8', fontSize:16, fontWeight:600, outline:'none',
+        textAlign:'center', minHeight:44, padding:'0 4px',
+        fontVariantNumeric:'tabular-nums',
+        transition:'border-color 0.15s',
+      };
+
+      return (
+        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+          {/* Set number */}
+          <span style={{ color:'#4A4744', fontSize:12, fontWeight:500, width:22, textAlign:'right', flexShrink:0 }}>
+            {setNum}
+          </span>
+
+          {/* Weight */}
+          <input ref={weightRef} type="number" inputMode="decimal" step="2.5" min="0"
+            value={set.weight} placeholder="0"
+            onChange={e => onChange('weight', e.target.value)}
+            onFocus={e => e.target.select()}
+            style={{ ...inputBase, width:72 }}
+            onFocus={e => { e.target.select(); e.target.style.borderColor='#D4A574'; }}
+            onBlur={e => e.target.style.borderColor='#2e2e2e'}
+          />
+
+          {/* Separator */}
+          <span style={{ color:'#4A4744', fontSize:14, fontWeight:500, flexShrink:0 }}>×</span>
+
+          {/* Reps */}
+          <input type="number" inputMode="numeric" min="0"
+            value={set.reps} placeholder="0"
+            onChange={e => onChange('reps', e.target.value)}
+            onFocus={e => { e.target.select(); e.target.style.borderColor='#D4A574'; }}
+            onBlur={e => e.target.style.borderColor='#2e2e2e'}
+            style={{ ...inputBase, width:58 }}
+          />
+
+          {/* Reps label */}
+          <span style={{ color:'#4A4744', fontSize:11, flexShrink:0 }}>reps</span>
+
+          {/* Delete set */}
+          <button onClick={onRemove}
+            style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer',
+              color:'#3a3a3a', padding:8, display:'flex', alignItems:'center', flexShrink:0,
+              borderRadius:6, transition:'color 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.color='#C47070'}
+            onMouseLeave={e => e.currentTarget.style.color='#3a3a3a'}>
+            <IconX size={14} color="currentColor"/>
+          </button>
+        </div>
+      );
+    }
+
+    function ExerciseBlock({ exercise, onUpdate, onRemove, exerciseNames, lastWeightMap }) {
+      const [newSetId, setNewSetId] = useState(null);
+
+      const exVolume = useMemo(() =>
+        exercise.sets.reduce((sum, s) => sum + (parseFloat(s.weight)||0) * (parseInt(s.reps)||0), 0),
+        [exercise.sets]);
+
+      const handleSetChange = (setId, field, value) => {
+        onUpdate({ ...exercise, sets: exercise.sets.map(s => s.id === setId ? { ...s, [field]: value } : s) });
+      };
+
+      const handleRemoveSet = (setId) => {
+        if (exercise.sets.length <= 1) return;
+        onUpdate({ ...exercise, sets: exercise.sets.filter(s => s.id !== setId) });
+      };
+
+      const handleAddSet = () => {
+        const last = exercise.sets[exercise.sets.length - 1];
+        const prefillWeight = last
+          ? last.weight
+          : (lastWeightMap[exercise.name] ? String(lastWeightMap[exercise.name]) : '');
+        const id = `set_${uid()}`;
+        setNewSetId(id);
+        onUpdate({ ...exercise, sets: [...exercise.sets, { id, weight: prefillWeight, reps: '' }] });
+      };
+
+      return (
+        <div style={{ background:'#1a1a1a', border:'1px solid #262626', borderRadius:14,
+          padding:'14px 14px 12px', marginBottom:12 }}>
+          {/* Exercise name + remove button */}
+          <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+            <div style={{ flex:1 }}>
+              <ExerciseInput
+                value={exercise.name}
+                onChange={name => onUpdate({ ...exercise, name })}
+                exerciseNames={exerciseNames}
+                placeholder="Exercise name..."
+              />
+            </div>
+            <button onClick={onRemove}
+              style={{ background:'#242424', border:'1px solid #2e2e2e', borderRadius:9,
+                color:'#8A8680', cursor:'pointer', padding:'0 10px', display:'flex',
+                alignItems:'center', flexShrink:0, transition:'color 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.color='#C47070'}
+              onMouseLeave={e => e.currentTarget.style.color='#8A8680'}>
+              <IconX size={14} color="currentColor"/>
+            </button>
+          </div>
+
+          {/* Set rows */}
+          {exercise.sets.map((set, i) => (
+            <SetRow key={set.id} setNum={i + 1} set={set}
+              onChange={(f, v) => handleSetChange(set.id, f, v)}
+              onRemove={() => handleRemoveSet(set.id)}
+              autoFocusWeight={set.id === newSetId}
+            />
+          ))}
+
+          {/* Add set + volume row */}
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:6 }}>
+            <button onClick={handleAddSet} className="press-scale"
+              style={{ display:'flex', alignItems:'center', gap:6, background:'#242424',
+                border:'1px solid #2e2e2e', borderRadius:8, padding:'7px 12px',
+                color:'#8A8680', fontSize:13, fontWeight:500, cursor:'pointer',
+                transition:'color 0.15s, border-color 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.color='#D4A574'; e.currentTarget.style.borderColor='#D4A574'; }}
+              onMouseLeave={e => { e.currentTarget.style.color='#8A8680'; e.currentTarget.style.borderColor='#2e2e2e'; }}>
+              <IconPlus size={12} color="currentColor"/>
+              Add Set
+            </button>
+            {exVolume > 0 && (
+              <span style={{ fontSize:12, color:'#4A4744', fontVariantNumeric:'tabular-nums' }}>
+                {exVolume.toLocaleString()} lbs
+              </span>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    function ActiveWorkoutLogger({ activeWorkout, lastWeightMap, exerciseNames, onCancel, onFinish }) {
+      const [exercises, setExercises] = useState(activeWorkout.exercises);
+      const [notes, setNotes]         = useState('');
+      const elapsed                   = useElapsedMinutes(activeWorkout.startTime);
+
+      const totalVolume = useMemo(() =>
+        exercises.reduce((sum, ex) =>
+          sum + ex.sets.reduce((s2, s) => s2 + (parseFloat(s.weight)||0) * (parseInt(s.reps)||0), 0), 0),
+        [exercises]);
+
+      const handleUpdateExercise = (updated) =>
+        setExercises(prev => prev.map(ex => ex.id === updated.id ? updated : ex));
+
+      const handleRemoveExercise = (id) =>
+        setExercises(prev => prev.length > 1 ? prev.filter(ex => ex.id !== id) : prev);
+
+      const handleAddExercise = () => {
+        const id = `ex_${uid()}`;
+        setExercises(prev => [...prev, { id, name: '', sets: [{ id: `set_${uid()}`, weight: '', reps: '' }] }]);
+      };
+
+      const handleFinish = () => {
+        const hasContent = exercises.some(ex => ex.name.trim() && ex.sets.some(s => (parseFloat(s.weight)||0) > 0 && (parseInt(s.reps)||0) > 0));
+        if (!hasContent) {
+          alert('Add at least one exercise with a set logged before finishing.');
+          return;
+        }
+        onFinish(exercises, notes);
+      };
+
+      return (
+        <div className="fade-in" style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+
+          {/* ── Header ── */}
+          <div style={{ padding:'14px 20px 12px', borderBottom:'1px solid #1e1e1e', flexShrink:0,
+            display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <h2 style={{ fontSize:17, fontWeight:700, color:'#F0EDE8' }}>Logging Workout</h2>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              {/* Green pulse dot + elapsed */}
+              <div className="pulse" style={{ width:7, height:7, borderRadius:'50%', background:'#7A9E7E', flexShrink:0 }}/>
+              <span className="tabular" style={{ fontSize:13, color:'#7A9E7E', fontWeight:600 }}>
+                {elapsed}m
+              </span>
+            </div>
+          </div>
+
+          {/* ── Scrollable content ── */}
+          <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 0' }}>
+
+            {exercises.map(ex => (
+              <ExerciseBlock
+                key={ex.id}
+                exercise={ex}
+                onUpdate={handleUpdateExercise}
+                onRemove={() => handleRemoveExercise(ex.id)}
+                exerciseNames={exerciseNames}
+                lastWeightMap={lastWeightMap}
+              />
+            ))}
+
+            {/* + Add Exercise */}
+            <button onClick={handleAddExercise} className="press-scale"
+              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8,
+                width:'100%', padding:'13px 20px', marginBottom:16,
+                background:'transparent', border:'1.5px dashed #2e2e2e', borderRadius:12,
+                color:'#8A8680', fontSize:14, fontWeight:500, cursor:'pointer',
+                transition:'color 0.15s, border-color 0.15s' }}
+              onMouseEnter={e => { e.currentTarget.style.color='#D4A574'; e.currentTarget.style.borderColor='#D4A574'; }}
+              onMouseLeave={e => { e.currentTarget.style.color='#8A8680'; e.currentTarget.style.borderColor='#2e2e2e'; }}>
+              <IconPlus size={14} color="currentColor"/>
+              Add Exercise
+            </button>
+
+            {/* Notes */}
+            <div style={{ marginBottom:16 }}>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value.slice(0, 500))}
+                placeholder="Notes (optional)..."
+                maxLength={500}
+                rows={2}
+                style={{ width:'100%', background:'#1a1a1a', border:'1px solid #262626',
+                  borderRadius:12, padding:'12px 14px', color:'#F0EDE8', fontSize:14,
+                  resize:'none', outline:'none', fontFamily:'inherit', lineHeight:1.5,
+                  transition:'border-color 0.15s' }}
+                onFocus={e => e.target.style.borderColor='#3a3a3a'}
+                onBlur={e => e.target.style.borderColor='#262626'}
+              />
+            </div>
+
+            {/* Total volume */}
+            {totalVolume > 0 && (
+              <div style={{ textAlign:'center', marginBottom:24 }}>
+                <div className="tabular" style={{ fontSize:28, fontWeight:700, color:'#F0EDE8', lineHeight:1 }}>
+                  {totalVolume.toLocaleString()}
+                </div>
+                <div style={{ fontSize:12, color:'#8A8680', marginTop:4, letterSpacing:'0.06em', textTransform:'uppercase' }}>
+                  lbs total volume
+                </div>
+              </div>
+            )}
+
+            {/* Spacer for bottom bar */}
+            <div style={{ height:90 }}/>
+          </div>
+
+          {/* ── Sticky bottom bar ── */}
+          <div style={{ position:'absolute', bottom:0, left:0, right:0,
+            background:'#0a0a0a', borderTop:'1px solid #1e1e1e',
+            padding:'10px 16px',
+            paddingBottom:'calc(10px + env(safe-area-inset-bottom, 0px))',
+            display:'flex', gap:10 }}>
+            <button onClick={() => { if (window.confirm('Cancel workout? Your progress will be lost.')) { navigator.vibrate && navigator.vibrate(30); onCancel(); } }}
+              style={{ flex:1, padding:'13px 0', borderRadius:11, border:'1px solid #2e2e2e',
+                background:'transparent', color:'#8A8680', fontSize:14, fontWeight:600, cursor:'pointer' }}>
+              Cancel
+            </button>
+            <button onClick={handleFinish} className="press-scale"
+              style={{ flex:2, padding:'13px 0', borderRadius:11, border:'none',
+                background:'#D4A574', color:'#0f0f0f', fontSize:15, fontWeight:700, cursor:'pointer' }}>
+              Finish Workout
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Today home — "Ready to lift?" hero card
+    // ─────────────────────────────────────────────────────────────────────────
+
     function TodayHome({ onOpenPicker }) {
       return (
-        <div className="fade-in" style={{ padding: '28px 20px 0' }}>
-          {/* Hero card */}
-          <div style={{
-            background: '#1a1a1a', border: '1px solid #262626', borderRadius: 18,
-            padding: '28px 24px', textAlign: 'center',
-          }}>
-            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
-              <IconDumbbell size={40} color="#D4A574" />
+        <div className="fade-in" style={{ padding:'28px 20px 0' }}>
+          <div style={{ background:'#1a1a1a', border:'1px solid #262626', borderRadius:18, padding:'28px 24px', textAlign:'center' }}>
+            <div style={{ marginBottom:16, display:'flex', justifyContent:'center' }}>
+              <IconDumbbell size={40} color="#D4A574"/>
             </div>
-            <h3 style={{ fontSize: 20, fontWeight: 700, color: '#F0EDE8', marginBottom: 8 }}>Ready to lift?</h3>
-            <p style={{ fontSize: 14, color: '#8A8680', marginBottom: 24, lineHeight: 1.5 }}>
+            <h3 style={{ fontSize:20, fontWeight:700, color:'#F0EDE8', marginBottom:8 }}>Ready to lift?</h3>
+            <p style={{ fontSize:14, color:'#8A8680', marginBottom:24, lineHeight:1.5 }}>
               Track your exercises, sets, and reps.
             </p>
-            <button
-              onClick={() => { navigator.vibrate && navigator.vibrate(20); onOpenPicker(); }}
+            <button onClick={() => { navigator.vibrate && navigator.vibrate(20); onOpenPicker(); }}
               className="press-scale"
-              style={{
-                width: '100%', padding: '14px 20px', borderRadius: 12, border: 'none',
-                background: '#D4A574', color: '#0f0f0f', fontSize: 15, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
+              style={{ width:'100%', padding:'14px 20px', borderRadius:12, border:'none',
+                background:'#D4A574', color:'#0f0f0f', fontSize:15, fontWeight:700, cursor:'pointer' }}>
               Start Workout
             </button>
           </div>
@@ -797,18 +855,33 @@
       );
     }
 
-    // Main TodayTab — orchestrates the state machine
-    function TodayTab({ exerciseNames, workoutsData, onStartWorkout, todayWorkout }) {
-      const [step, setStep]                   = useState('home');   // 'home' | 'pick_split' | 'pick_exercises'
+    // ─────────────────────────────────────────────────────────────────────────
+    // TodayTab — orchestrates home / picker / active logger
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function TodayTab({ exerciseNames, workoutsData, activeWorkout, lastWeightMap, onStartWorkout, onCancelWorkout, onFinishWorkout }) {
+      const [step, setStep]               = useState('home');
       const [selectedSplit, setSelectedSplit] = useState(null);
       const [pickerExercises, setPickerExercises] = useState([]);
 
       const frequency = useMemo(() => buildExerciseFrequency(workoutsData), [workoutsData]);
 
+      // Active logger takes over
+      if (activeWorkout) {
+        return (
+          <ActiveWorkoutLogger
+            activeWorkout={activeWorkout}
+            lastWeightMap={lastWeightMap}
+            exerciseNames={exerciseNames}
+            onCancel={onCancelWorkout}
+            onFinish={onFinishWorkout}
+          />
+        );
+      }
+
       const handleSelectSplit = (split) => {
         setSelectedSplit(split);
         if (split.id === 'free') {
-          // Free workout: start immediately with no pre-selected exercises
           onStartWorkout([], split);
         } else {
           setPickerExercises(getSuggestions(split, frequency));
@@ -816,27 +889,10 @@
         }
       };
 
-      const handleToggle = (index) => {
-        setPickerExercises(prev => prev.map((ex, i) => i === index ? { ...ex, selected: !ex.selected } : ex));
-      };
-
-      const handleStart = () => {
-        onStartWorkout(pickerExercises.filter(e => e.selected), selectedSplit);
-      };
-
-      const handleCancel = () => {
-        setStep('home');
-        setSelectedSplit(null);
-        setPickerExercises([]);
-      };
+      const handleCancel = () => { setStep('home'); setSelectedSplit(null); setPickerExercises([]); };
 
       if (step === 'pick_split') {
-        return (
-          <SplitPickerStep1
-            onSelect={handleSelectSplit}
-            onCancel={handleCancel}
-          />
-        );
+        return <SplitPickerStep1 onSelect={handleSelectSplit} onCancel={handleCancel}/>;
       }
 
       if (step === 'pick_exercises' && selectedSplit) {
@@ -844,15 +900,15 @@
           <SplitPickerStep2
             split={selectedSplit}
             exercises={pickerExercises}
-            onToggle={handleToggle}
+            onToggle={i => setPickerExercises(prev => prev.map((ex, j) => j === i ? { ...ex, selected: !ex.selected } : ex))}
             onBack={() => setStep('pick_split')}
             onCancel={handleCancel}
-            onStart={handleStart}
+            onStart={() => onStartWorkout(pickerExercises.filter(e => e.selected), selectedSplit)}
           />
         );
       }
 
-      return <TodayHome onOpenPicker={() => setStep('pick_split')} />;
+      return <TodayHome onOpenPicker={() => setStep('pick_split')}/>;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -860,19 +916,15 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     function HistoryTab() {
-      return (
-        <div className="fade-in" style={{ padding: '28px 20px' }}>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#F0EDE8' }}>History</h2>
-        </div>
-      );
+      return <div className="fade-in" style={{ padding:'28px 20px' }}>
+        <h2 style={{ fontSize:22, fontWeight:700, color:'#F0EDE8' }}>History</h2>
+      </div>;
     }
 
     function YouTab() {
-      return (
-        <div className="fade-in" style={{ padding: '28px 20px' }}>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#F0EDE8' }}>You</h2>
-        </div>
-      );
+      return <div className="fade-in" style={{ padding:'28px 20px' }}>
+        <h2 style={{ fontSize:22, fontWeight:700, color:'#F0EDE8' }}>You</h2>
+      </div>;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -880,34 +932,31 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     const TABS = [
-      { id: 'today',   label: 'Today',   Icon: IconToday   },
-      { id: 'history', label: 'History', Icon: IconHistory },
-      { id: 'you',     label: 'You',     Icon: IconYou     },
+      { id:'today',   label:'Today',   Icon:IconToday   },
+      { id:'history', label:'History', Icon:IconHistory },
+      { id:'you',     label:'You',     Icon:IconYou     },
     ];
 
     function BottomNav({ activeTab, onTabPress }) {
       return (
         <nav role="navigation" aria-label="Main navigation" style={{
-          position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-          width: '100%', maxWidth: 480, background: '#111', borderTop: '1px solid #1e1e1e',
-          display: 'flex', paddingBottom: 'env(safe-area-inset-bottom, 0px)', zIndex: 50,
-        }}>
+          position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)',
+          width:'100%', maxWidth:480, background:'#111', borderTop:'1px solid #1e1e1e',
+          display:'flex', paddingBottom:'env(safe-area-inset-bottom, 0px)', zIndex:50 }}>
           {TABS.map(({ id, label, Icon }) => {
             const active = activeTab === id;
             return (
               <button key={id} onClick={() => onTabPress(id)}
                 aria-label={label} aria-current={active ? 'page' : undefined}
-                style={{
-                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  justifyContent: 'center', gap: 3, paddingTop: 10, paddingBottom: 10,
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  color: active ? '#D4A574' : '#4A4744', transition: 'color 0.2s', userSelect: 'none',
-                }}>
-                <Icon size={22} color={active ? '#D4A574' : '#4A4744'} />
-                <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, letterSpacing: '0.03em', lineHeight: 1 }}>
+                style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
+                  justifyContent:'center', gap:3, paddingTop:10, paddingBottom:10,
+                  background:'none', border:'none', cursor:'pointer',
+                  color: active ? '#D4A574' : '#4A4744', transition:'color 0.2s', userSelect:'none' }}>
+                <Icon size={22} color={active ? '#D4A574' : '#4A4744'}/>
+                <span style={{ fontSize:10, fontWeight: active ? 600 : 400, letterSpacing:'0.03em', lineHeight:1 }}>
                   {label}
                 </span>
-                <div style={{ width: 4, height: 4, borderRadius: '50%', background: active ? '#D4A574' : 'transparent', transition: 'background 0.2s' }} />
+                <div style={{ width:4, height:4, borderRadius:'50%', background: active ? '#D4A574' : 'transparent', transition:'background 0.2s' }}/>
               </button>
             );
           })}
@@ -920,8 +969,9 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     function App() {
-      const [activeTab, setActiveTab] = useState('today');
-      const [seeding, setSeeding]     = useState(false);
+      const [activeTab, setActiveTab]       = useState('today');
+      const [seeding, setSeeding]           = useState(false);
+      const [activeWorkout, setActiveWorkout] = useState(null);
 
       const [exerciseNamesData] = useFirebase('drea/exerciseNames');
       const [workoutsData]      = useFirebase('drea/workouts');
@@ -931,7 +981,7 @@
         return [...new Set(Object.values(exerciseNamesData))].sort();
       }, [exerciseNamesData]);
 
-      const todayWorkout = workoutsData ? workoutsData[todayKey()] : null;
+      const lastWeightMap = useMemo(() => buildLastWeightMap(workoutsData), [workoutsData]);
 
       useEffect(() => {
         (async () => {
@@ -944,37 +994,50 @@
         })();
       }, []);
 
-      const handleTabPress = (id) => {
-        navigator.vibrate && navigator.vibrate(10);
-        setActiveTab(id);
+      const handleTabPress = (id) => { navigator.vibrate && navigator.vibrate(10); setActiveTab(id); };
+
+      const handleStartWorkout = (pickerExercises, split) => {
+        const exercises = pickerExercises.length > 0
+          ? pickerExercises.map((ex, i) => ({
+              id: `ex_${uid()}`,
+              name: ex.name,
+              sets: [{ id: `set_${uid()}`, weight: lastWeightMap[ex.name] ? String(lastWeightMap[ex.name]) : '', reps: '' }],
+            }))
+          : [{ id: `ex_${uid()}`, name: '', sets: [{ id: `set_${uid()}`, weight: '', reps: '' }] }];
+
+        setActiveWorkout({ exercises, split, startTime: Date.now() });
+        setActiveTab('today');
       };
 
-      // Called when user confirms exercises and hits "Start Workout (N)"
-      // Phase 2b will expand this into a full active logger
-      const handleStartWorkout = (exercises, split) => {
-        console.log('Starting workout:', split.label, exercises.map(e => e.name));
-        // TODO Phase 2b: setActiveWorkout({ exercises, split, startTime: Date.now() })
+      const handleCancelWorkout = () => setActiveWorkout(null);
+
+      // Phase 2c will implement full save + PR detection; stub for now
+      const handleFinishWorkout = (exercises, notes) => {
+        // TODO Phase 2c: save to Firebase
+        setActiveWorkout(null);
       };
 
-      if (seeding) return <SeedingScreen />;
+      if (seeding) return <SeedingScreen/>;
 
       return (
-        <div style={{ background: '#0f0f0f', height: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ width: '100%', maxWidth: 480, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-            <main role="main" style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', height: '100%' }}>
+        <div style={{ background:'#0f0f0f', height:'100dvh', display:'flex', flexDirection:'column', alignItems:'center' }}>
+          <div style={{ width:'100%', maxWidth:480, flex:1, display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
+            <main role="main" style={{ flex:1, overflowY:'auto', paddingBottom:'calc(64px + env(safe-area-inset-bottom, 0px))', height:'100%' }}>
               {activeTab === 'today' && (
-                <TodayTab
-                  key="today"
+                <TodayTab key="today"
                   exerciseNames={exerciseNames}
                   workoutsData={workoutsData}
-                  todayWorkout={todayWorkout}
+                  activeWorkout={activeWorkout}
+                  lastWeightMap={lastWeightMap}
                   onStartWorkout={handleStartWorkout}
+                  onCancelWorkout={handleCancelWorkout}
+                  onFinishWorkout={handleFinishWorkout}
                 />
               )}
-              {activeTab === 'history' && <HistoryTab key="history" />}
-              {activeTab === 'you'     && <YouTab     key="you"     />}
+              {activeTab === 'history' && <HistoryTab key="history"/>}
+              {activeTab === 'you'     && <YouTab     key="you"/>}
             </main>
-            <BottomNav activeTab={activeTab} onTabPress={handleTabPress} />
+            <BottomNav activeTab={activeTab} onTabPress={handleTabPress}/>
           </div>
         </div>
       );
@@ -988,7 +1051,7 @@
       window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
   </script>
 </body>
 </html>

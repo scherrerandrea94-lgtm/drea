@@ -156,7 +156,7 @@ Build the guided workout initiation flow.
 
 ---
 
-## PHASE 2b — Active Workout Logger ⬜
+## PHASE 2b — Active Workout Logger ✅
 Build the full workout logging experience.
 
 **Active workout state:**
