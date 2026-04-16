@@ -82,7 +82,7 @@ const firebaseConfig = {
 
 ---
 
-## PHASE 1b — Exercise Database & Seeding ⬜
+## PHASE 1b — Exercise Database & Seeding ✅
 Set up the exercise name database in Firebase with the full exercise library.
 
 **Exercise-to-Muscle mapping:**
