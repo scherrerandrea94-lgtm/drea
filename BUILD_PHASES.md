@@ -8,7 +8,7 @@ Mark each phase ✅ when complete. Claude Code should check this file, find the 
 
 ---
 
-## PHASE 0 — Project Setup & GitHub ⬜
+## PHASE 0 — Project Setup & GitHub ✅
 Initialize the project repository and deployment pipeline.
 
 - Create a new GitHub repo called `drea`
