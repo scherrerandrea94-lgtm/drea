@@ -2,27 +2,343 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Drea" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>Drea</title>
+
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- Preload key CDN scripts -->
+  <link rel="preload" href="https://unpkg.com/react@18/umd/react.production.min.js" as="script" crossorigin />
+  <link rel="preload" href="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" as="script" crossorigin />
+
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Firebase compat SDK v10 -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'drea-bg':        '#0f0f0f',
+            'drea-card':      '#1a1a1a',
+            'drea-border':    '#262626',
+            'drea-amber':     '#D4A574',
+            'drea-rose':      '#C08B8B',
+            'drea-sage':      '#7A9E7E',
+            'drea-danger':    '#C47070',
+            'drea-primary':   '#F0EDE8',
+            'drea-secondary': '#8A8680',
+            'drea-tertiary':  '#4A4744',
+          },
+        },
+      },
+    };
+  </script>
+
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
       background: #0f0f0f;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
+      color: #F0EDE8;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
     }
-    h1 {
-      color: #D4A574;
-      font-size: 2.5rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
+
+    /* Hide scrollbars */
+    ::-webkit-scrollbar { display: none; }
+    * { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* Fade-in for tab switches */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to   { opacity: 1; transform: translateY(0);   }
     }
+    .fade-in { animation: fadeIn 0.15s ease-in both; }
+
+    /* Tabular numbers for stats */
+    .tabular { font-variant-numeric: tabular-nums; }
+
+    /* Remove number input spinners */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+
+    /* Tap highlight off */
+    * { -webkit-tap-highlight-color: transparent; }
   </style>
 </head>
 <body>
-  <h1>Drea</h1>
+  <div id="root"></div>
+
+  <!-- Firebase init (plain JS, before Babel/React) -->
+  <script>
+    const firebaseConfig = {
+      apiKey:            "AIzaSyDr_fgqlOX9oHmrDJlDfVDAjxMTKTza2ho",
+      authDomain:        "drea-fitness.firebaseapp.com",
+      databaseURL:       "https://drea-fitness-default-rtdb.firebaseio.com",
+      projectId:         "drea-fitness",
+      storageBucket:     "drea-fitness.firebasestorage.app",
+      messagingSenderId: "534496016260",
+      appId:             "1:534496016260:web:c5ef90e2e4b75e598f8fd1"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+  </script>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Firebase helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function useFirebase(path) {
+      const [data, setData]       = useState(null);
+      const [loading, setLoading] = useState(true);
+
+      useEffect(() => {
+        if (!path) { setLoading(false); return; }
+        const ref = db.ref(path);
+        ref.on('value', snap => {
+          setData(snap.val());
+          setLoading(false);
+        });
+        return () => ref.off('value');
+      }, [path]);
+
+      return [data, loading];
+    }
+
+    const fbSet    = (path, value)   => db.ref(path).set(value);
+    const fbUpdate = (path, updates) => db.ref(path).update(updates);
+    const fbPush   = (path, value)   => db.ref(path).push(value);
+    const fbRemove = (path)          => db.ref(path).remove();
+
+    const localGet = (key) => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
+    const localSet = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SVG Icons (thin-stroke, Lucide-style)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function IconToday({ size = 22, color = 'currentColor' }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="4" width="18" height="18" rx="3" />
+          <line x1="3"  y1="9"  x2="21" y2="9" />
+          <line x1="8"  y1="2"  x2="8"  y2="6" />
+          <line x1="16" y1="2"  x2="16" y2="6" />
+          <circle cx="12" cy="15" r="1.5" fill={color} stroke="none" />
+        </svg>
+      );
+    }
+
+    function IconHistory({ size = 22, color = 'currentColor' }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="9" />
+          <polyline points="12 7 12 12 15.5 14" />
+        </svg>
+      );
+    }
+
+    function IconYou({ size = 22, color = 'currentColor' }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+        </svg>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Tab content placeholders
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function TodayTab() {
+      return (
+        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 24px' }}>
+          <p style={{ color: '#8A8680', fontSize: 14 }}>Today's workout will live here.</p>
+        </div>
+      );
+    }
+
+    function HistoryTab() {
+      return (
+        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 24px' }}>
+          <p style={{ color: '#8A8680', fontSize: 14 }}>Your workout history will live here.</p>
+        </div>
+      );
+    }
+
+    function YouTab() {
+      return (
+        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 24px' }}>
+          <p style={{ color: '#8A8680', fontSize: 14 }}>Your profile and records will live here.</p>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Bottom nav
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const TABS = [
+      { id: 'today',   label: 'Today',   Icon: IconToday   },
+      { id: 'history', label: 'History', Icon: IconHistory },
+      { id: 'you',     label: 'You',     Icon: IconYou     },
+    ];
+
+    function BottomNav({ activeTab, onTabPress }) {
+      return (
+        <nav
+          role="navigation"
+          aria-label="Main navigation"
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '100%',
+            maxWidth: 480,
+            background: '#111111',
+            borderTop: '1px solid #1e1e1e',
+            display: 'flex',
+            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+            zIndex: 50,
+          }}
+        >
+          {TABS.map(({ id, label, Icon }) => {
+            const isActive = activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => onTabPress(id)}
+                aria-label={label}
+                aria-current={isActive ? 'page' : undefined}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 3,
+                  paddingTop: 10,
+                  paddingBottom: 10,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: isActive ? '#D4A574' : '#4A4744',
+                  transition: 'color 0.2s',
+                  WebkitTapHighlightColor: 'transparent',
+                  userSelect: 'none',
+                }}
+              >
+                <Icon size={22} color={isActive ? '#D4A574' : '#4A4744'} />
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: isActive ? 600 : 400,
+                  letterSpacing: '0.03em',
+                  lineHeight: 1,
+                }}>
+                  {label}
+                </span>
+                <div style={{
+                  width: 4,
+                  height: 4,
+                  borderRadius: '50%',
+                  background: isActive ? '#D4A574' : 'transparent',
+                  transition: 'background 0.2s',
+                }} />
+              </button>
+            );
+          })}
+        </nav>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // App
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('today');
+
+      const handleTabPress = (tabId) => {
+        navigator.vibrate && navigator.vibrate(10);
+        setActiveTab(tabId);
+      };
+
+      // Content height = full viewport minus bottom nav (64px) minus safe area
+      const contentStyle = {
+        flex: 1,
+        overflowY: 'auto',
+        paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+        height: '100%',
+      };
+
+      return (
+        <div style={{
+          background: '#0f0f0f',
+          height: '100dvh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+        }}>
+          <div style={{
+            width: '100%',
+            maxWidth: 480,
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            position: 'relative',
+          }}>
+            <main role="main" style={contentStyle}>
+              {activeTab === 'today'   && <TodayTab   key="today"   />}
+              {activeTab === 'history' && <HistoryTab key="history" />}
+              {activeTab === 'you'     && <YouTab     key="you"     />}
+            </main>
+
+            <BottomNav activeTab={activeTab} onTabPress={handleTabPress} />
+          </div>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Service worker registration
+    // ─────────────────────────────────────────────────────────────────────────
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Mount
+    // ─────────────────────────────────────────────────────────────────────────
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
 </body>
 </html>
