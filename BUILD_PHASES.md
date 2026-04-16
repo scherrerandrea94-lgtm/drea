@@ -113,7 +113,7 @@ Set up the exercise name database in Firebase with the full exercise library.
 
 ---
 
-## PHASE 2a — Split Picker & Workout Start Flow ⬜
+## PHASE 2a — Split Picker & Workout Start Flow ✅
 Build the guided workout initiation flow.
 
 **SPLITS constant:**

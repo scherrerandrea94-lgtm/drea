@@ -61,10 +61,10 @@
     * { -ms-overflow-style: none; scrollbar-width: none; }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(5px); }
+      from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0);   }
     }
-    .fade-in { animation: fadeIn 0.15s ease-in both; }
+    .fade-in { animation: fadeIn 0.18s ease-out both; }
 
     @keyframes spin {
       to { transform: rotate(360deg); }
@@ -78,6 +78,9 @@
     input[type=number] { -moz-appearance: textfield; }
 
     * { -webkit-tap-highlight-color: transparent; }
+
+    .press-scale { transition: transform 0.12s ease, opacity 0.12s ease; }
+    .press-scale:active { transform: scale(0.97); opacity: 0.85; }
   </style>
 </head>
 <body>
@@ -101,192 +104,262 @@
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Exercise-to-muscle map (150+ exercises)
+    // Exercise-to-muscle map (160+ exercises)
     // ─────────────────────────────────────────────────────────────────────────
 
     const EXERCISE_MUSCLE_MAP = {
       // Chest
-      'Bench Press':                ['chest'],
-      'Incline Bench Press':        ['chest'],
-      'Decline Bench Press':        ['chest'],
-      'Dumbbell Bench Press':       ['chest'],
-      'Incline Dumbbell Press':     ['chest'],
-      'Decline Dumbbell Press':     ['chest'],
-      'Dumbbell Fly':               ['chest'],
-      'Incline Dumbbell Fly':       ['chest'],
-      'Cable Fly':                  ['chest'],
-      'High Cable Fly':             ['chest'],
-      'Low Cable Fly':              ['chest'],
-      'Cable Crossover':            ['chest'],
-      'Chest Dip':                  ['chest', 'triceps'],
-      'Push-Up':                    ['chest', 'triceps'],
-      'Wide Push-Up':               ['chest'],
-      'Machine Chest Press':        ['chest'],
-      'Pec Deck':                   ['chest'],
-      'Svend Press':                ['chest'],
-      'Landmine Press':             ['chest', 'shoulders'],
-      'Smith Machine Bench Press':  ['chest'],
-
+      'Bench Press':                  ['chest'],
+      'Incline Bench Press':          ['chest'],
+      'Decline Bench Press':          ['chest'],
+      'Dumbbell Bench Press':         ['chest'],
+      'Incline Dumbbell Press':       ['chest'],
+      'Decline Dumbbell Press':       ['chest'],
+      'Dumbbell Fly':                 ['chest'],
+      'Incline Dumbbell Fly':         ['chest'],
+      'Cable Fly':                    ['chest'],
+      'High Cable Fly':               ['chest'],
+      'Low Cable Fly':                ['chest'],
+      'Cable Crossover':              ['chest'],
+      'Chest Dip':                    ['chest', 'triceps'],
+      'Push-Up':                      ['chest', 'triceps'],
+      'Wide Push-Up':                 ['chest'],
+      'Machine Chest Press':          ['chest'],
+      'Pec Deck':                     ['chest'],
+      'Svend Press':                  ['chest'],
+      'Landmine Press':               ['chest', 'shoulders'],
+      'Smith Machine Bench Press':    ['chest'],
       // Back
-      'Deadlift':                   ['back', 'legs'],
-      'Barbell Row':                ['back'],
-      'Pendlay Row':                ['back'],
-      'Dumbbell Row':               ['back'],
-      'Single Arm Dumbbell Row':    ['back'],
-      'T-Bar Row':                  ['back'],
-      'Seated Cable Row':           ['back'],
-      'Lat Pulldown':               ['back'],
-      'Wide Grip Lat Pulldown':     ['back'],
-      'Close Grip Lat Pulldown':    ['back'],
-      'Pull-Up':                    ['back', 'biceps'],
-      'Chin-Up':                    ['back', 'biceps'],
-      'Neutral Grip Pull-Up':       ['back', 'biceps'],
-      'Assisted Pull-Up':           ['back', 'biceps'],
-      'Cable Row':                  ['back'],
-      'Single Arm Cable Row':       ['back'],
-      'Chest Supported Row':        ['back'],
-      'Meadows Row':                ['back'],
-      'Rack Pull':                  ['back', 'traps'],
-      'Good Morning':               ['back', 'legs'],
-      'Back Extension':             ['back'],
-      'Dumbbell Pullover':          ['back', 'chest'],
-      'Straight Arm Pulldown':      ['back'],
-      'Cable Pullover':             ['back'],
-      'Machine Row':                ['back'],
-      'Reverse Grip Barbell Row':   ['back'],
-
+      'Deadlift':                     ['back', 'legs'],
+      'Barbell Row':                  ['back'],
+      'Pendlay Row':                  ['back'],
+      'Dumbbell Row':                 ['back'],
+      'Single Arm Dumbbell Row':      ['back'],
+      'T-Bar Row':                    ['back'],
+      'Seated Cable Row':             ['back'],
+      'Lat Pulldown':                 ['back'],
+      'Wide Grip Lat Pulldown':       ['back'],
+      'Close Grip Lat Pulldown':      ['back'],
+      'Pull-Up':                      ['back', 'biceps'],
+      'Chin-Up':                      ['back', 'biceps'],
+      'Neutral Grip Pull-Up':         ['back', 'biceps'],
+      'Assisted Pull-Up':             ['back', 'biceps'],
+      'Cable Row':                    ['back'],
+      'Single Arm Cable Row':         ['back'],
+      'Chest Supported Row':          ['back'],
+      'Meadows Row':                  ['back'],
+      'Rack Pull':                    ['back', 'traps'],
+      'Good Morning':                 ['back', 'legs'],
+      'Back Extension':               ['back'],
+      'Dumbbell Pullover':            ['back', 'chest'],
+      'Straight Arm Pulldown':        ['back'],
+      'Cable Pullover':               ['back'],
+      'Machine Row':                  ['back'],
+      'Reverse Grip Barbell Row':     ['back'],
       // Shoulders
-      'Overhead Press':             ['shoulders'],
-      'Barbell Overhead Press':     ['shoulders'],
-      'Dumbbell Shoulder Press':    ['shoulders'],
-      'Seated Dumbbell Press':      ['shoulders'],
-      'Arnold Press':               ['shoulders'],
+      'Overhead Press':               ['shoulders'],
+      'Barbell Overhead Press':       ['shoulders'],
+      'Dumbbell Shoulder Press':      ['shoulders'],
+      'Seated Dumbbell Press':        ['shoulders'],
+      'Arnold Press':                 ['shoulders'],
       'Smith Machine Overhead Press': ['shoulders'],
-      'Lateral Raise':              ['shoulders'],
-      'Dumbbell Lateral Raise':     ['shoulders'],
-      'Cable Lateral Raise':        ['shoulders'],
-      'Machine Lateral Raise':      ['shoulders'],
-      'Front Raise':                ['shoulders'],
-      'Dumbbell Front Raise':       ['shoulders'],
-      'Cable Front Raise':          ['shoulders'],
-      'Plate Front Raise':          ['shoulders'],
-      'Face Pulls':                 ['shoulders', 'traps'],
-      'Reverse Flyes':              ['shoulders'],
-      'Dumbbell Reverse Fly':       ['shoulders'],
-      'Cable Reverse Fly':          ['shoulders'],
-      'Upright Row':                ['shoulders', 'traps'],
-      'Barbell Upright Row':        ['shoulders', 'traps'],
-      'Cable Upright Row':          ['shoulders', 'traps'],
-      'Landmine Lateral Raise':     ['shoulders'],
-      'Bradford Press':             ['shoulders'],
-
+      'Lateral Raise':                ['shoulders'],
+      'Dumbbell Lateral Raise':       ['shoulders'],
+      'Cable Lateral Raise':          ['shoulders'],
+      'Machine Lateral Raise':        ['shoulders'],
+      'Front Raise':                  ['shoulders'],
+      'Dumbbell Front Raise':         ['shoulders'],
+      'Cable Front Raise':            ['shoulders'],
+      'Plate Front Raise':            ['shoulders'],
+      'Face Pulls':                   ['shoulders', 'traps'],
+      'Reverse Flyes':                ['shoulders'],
+      'Dumbbell Reverse Fly':         ['shoulders'],
+      'Cable Reverse Fly':            ['shoulders'],
+      'Upright Row':                  ['shoulders', 'traps'],
+      'Barbell Upright Row':          ['shoulders', 'traps'],
+      'Cable Upright Row':            ['shoulders', 'traps'],
+      'Landmine Lateral Raise':       ['shoulders'],
+      'Bradford Press':               ['shoulders'],
       // Biceps
-      'Barbell Curl':               ['biceps'],
-      'EZ Bar Curl':                ['biceps'],
-      'Dumbbell Curl':              ['biceps'],
-      'Alternating Dumbbell Curl':  ['biceps'],
-      'Hammer Curl':                ['biceps'],
-      'Cross Body Hammer Curl':     ['biceps'],
-      'Incline Dumbbell Curl':      ['biceps'],
-      'Concentration Curl':         ['biceps'],
-      'Preacher Curl':              ['biceps'],
-      'Cable Curl':                 ['biceps'],
-      'High Cable Curl':            ['biceps'],
-      'Rope Hammer Curl':           ['biceps'],
-      'Spider Curl':                ['biceps'],
-      'Reverse Curl':               ['biceps'],
-      'Zottman Curl':               ['biceps'],
-      'Machine Curl':               ['biceps'],
-      '21s':                        ['biceps'],
-
+      'Barbell Curl':                 ['biceps'],
+      'EZ Bar Curl':                  ['biceps'],
+      'Dumbbell Curl':                ['biceps'],
+      'Alternating Dumbbell Curl':    ['biceps'],
+      'Hammer Curl':                  ['biceps'],
+      'Cross Body Hammer Curl':       ['biceps'],
+      'Incline Dumbbell Curl':        ['biceps'],
+      'Concentration Curl':           ['biceps'],
+      'Preacher Curl':                ['biceps'],
+      'Cable Curl':                   ['biceps'],
+      'High Cable Curl':              ['biceps'],
+      'Rope Hammer Curl':             ['biceps'],
+      'Spider Curl':                  ['biceps'],
+      'Reverse Curl':                 ['biceps'],
+      'Zottman Curl':                 ['biceps'],
+      'Machine Curl':                 ['biceps'],
+      '21s':                          ['biceps'],
       // Triceps
-      'Tricep Pushdown':            ['triceps'],
-      'Rope Pushdown':              ['triceps'],
-      'Bar Pushdown':               ['triceps'],
-      'Overhead Tricep Extension':  ['triceps'],
-      'Skull Crushers':             ['triceps'],
-      'EZ Bar Skull Crusher':       ['triceps'],
-      'Close Grip Bench Press':     ['triceps', 'chest'],
-      'Tricep Dip':                 ['triceps'],
-      'Diamond Push-Up':            ['triceps'],
-      'Dumbbell Kickback':          ['triceps'],
-      'Cable Kickback':             ['triceps'],
-      'JM Press':                   ['triceps'],
-      'Tate Press':                 ['triceps'],
-      'Machine Tricep Press':       ['triceps'],
-      'Single Arm Pushdown':        ['triceps'],
-
+      'Tricep Pushdown':              ['triceps'],
+      'Rope Pushdown':                ['triceps'],
+      'Bar Pushdown':                 ['triceps'],
+      'Overhead Tricep Extension':    ['triceps'],
+      'Skull Crushers':               ['triceps'],
+      'EZ Bar Skull Crusher':         ['triceps'],
+      'Close Grip Bench Press':       ['triceps', 'chest'],
+      'Tricep Dip':                   ['triceps'],
+      'Diamond Push-Up':              ['triceps'],
+      'Dumbbell Kickback':            ['triceps'],
+      'Cable Kickback':               ['triceps'],
+      'JM Press':                     ['triceps'],
+      'Tate Press':                   ['triceps'],
+      'Machine Tricep Press':         ['triceps'],
+      'Single Arm Pushdown':          ['triceps'],
       // Traps
-      'Shrugs':                     ['traps'],
-      'Barbell Shrug':              ['traps'],
-      'Dumbbell Shrug':             ['traps'],
-      'Cable Shrug':                ['traps'],
-      'Smith Machine Shrug':        ['traps'],
-      'Farmer\'s Walk':             ['traps', 'core'],
-      'Power Clean':                ['traps', 'back', 'legs'],
-
+      'Shrugs':                       ['traps'],
+      'Barbell Shrug':                ['traps'],
+      'Dumbbell Shrug':               ['traps'],
+      'Cable Shrug':                  ['traps'],
+      'Smith Machine Shrug':          ['traps'],
+      "Farmer's Walk":                ['traps', 'core'],
+      'Power Clean':                  ['traps', 'back', 'legs'],
       // Legs
-      'Squat':                      ['legs'],
-      'Back Squat':                 ['legs'],
-      'Front Squat':                ['legs'],
-      'Goblet Squat':               ['legs'],
-      'Bulgarian Split Squat':      ['legs'],
-      'Leg Press':                  ['legs'],
-      'Romanian Deadlift':          ['legs'],
-      'Stiff Leg Deadlift':         ['legs'],
-      'Sumo Deadlift':              ['legs'],
-      'Leg Curl':                   ['legs'],
-      'Lying Leg Curl':             ['legs'],
-      'Seated Leg Curl':            ['legs'],
-      'Leg Extension':              ['legs'],
-      'Calf Raise':                 ['legs'],
-      'Standing Calf Raise':        ['legs'],
-      'Seated Calf Raise':          ['legs'],
-      'Donkey Calf Raise':          ['legs'],
-      'Hack Squat':                 ['legs'],
-      'Sumo Squat':                 ['legs'],
-      'Walking Lunge':              ['legs'],
-      'Reverse Lunge':              ['legs'],
-      'Step Up':                    ['legs'],
-      'Hip Thrust':                 ['legs'],
-      'Glute Bridge':               ['legs'],
-      'Hip Abduction':              ['legs'],
-      'Hip Adduction':              ['legs'],
-      'Leg Press Calf Raise':       ['legs'],
-      'Smith Machine Squat':        ['legs'],
-      'Box Squat':                  ['legs'],
-      'Pause Squat':                ['legs'],
-      'Single Leg Press':           ['legs'],
-      'Cable Pull Through':         ['legs'],
-
+      'Squat':                        ['legs'],
+      'Back Squat':                   ['legs'],
+      'Front Squat':                  ['legs'],
+      'Goblet Squat':                 ['legs'],
+      'Bulgarian Split Squat':        ['legs'],
+      'Leg Press':                    ['legs'],
+      'Romanian Deadlift':            ['legs'],
+      'Stiff Leg Deadlift':           ['legs'],
+      'Sumo Deadlift':                ['legs'],
+      'Leg Curl':                     ['legs'],
+      'Lying Leg Curl':               ['legs'],
+      'Seated Leg Curl':              ['legs'],
+      'Leg Extension':                ['legs'],
+      'Calf Raise':                   ['legs'],
+      'Standing Calf Raise':          ['legs'],
+      'Seated Calf Raise':            ['legs'],
+      'Donkey Calf Raise':            ['legs'],
+      'Hack Squat':                   ['legs'],
+      'Sumo Squat':                   ['legs'],
+      'Walking Lunge':                ['legs'],
+      'Reverse Lunge':                ['legs'],
+      'Step Up':                      ['legs'],
+      'Hip Thrust':                   ['legs'],
+      'Glute Bridge':                 ['legs'],
+      'Hip Abduction':                ['legs'],
+      'Hip Adduction':                ['legs'],
+      'Leg Press Calf Raise':         ['legs'],
+      'Smith Machine Squat':          ['legs'],
+      'Box Squat':                    ['legs'],
+      'Pause Squat':                  ['legs'],
+      'Single Leg Press':             ['legs'],
+      'Cable Pull Through':           ['legs'],
       // Core
-      'Cable Crunch':               ['core'],
-      'Hanging Leg Raise':          ['core'],
-      'Hanging Knee Raise':         ['core'],
-      'Plank':                      ['core'],
-      'Side Plank':                 ['core'],
-      'Ab Wheel Rollout':           ['core'],
-      'Crunch':                     ['core'],
-      'Bicycle Crunch':             ['core'],
-      'Russian Twist':              ['core'],
-      'Leg Raise':                  ['core'],
-      'Reverse Crunch':             ['core'],
-      'Dragon Flag':                ['core'],
-      'Wood Chop':                  ['core'],
-      'Pallof Press':               ['core'],
-      'Dead Bug':                   ['core'],
-      'Bird Dog':                   ['core'],
-      'Hollow Body Hold':           ['core'],
-      'V-Up':                       ['core'],
-      'Sit-Up':                     ['core'],
-      'Decline Sit-Up':             ['core'],
-      'Toe Touch':                  ['core'],
-      'Mountain Climber':           ['core'],
-      'Toes to Bar':                ['core'],
-      'Cable Woodchop':             ['core'],
+      'Cable Crunch':                 ['core'],
+      'Hanging Leg Raise':            ['core'],
+      'Hanging Knee Raise':           ['core'],
+      'Plank':                        ['core'],
+      'Side Plank':                   ['core'],
+      'Ab Wheel Rollout':             ['core'],
+      'Crunch':                       ['core'],
+      'Bicycle Crunch':               ['core'],
+      'Russian Twist':                ['core'],
+      'Leg Raise':                    ['core'],
+      'Reverse Crunch':               ['core'],
+      'Dragon Flag':                  ['core'],
+      'Wood Chop':                    ['core'],
+      'Pallof Press':                 ['core'],
+      'Dead Bug':                     ['core'],
+      'Bird Dog':                     ['core'],
+      'Hollow Body Hold':             ['core'],
+      'V-Up':                         ['core'],
+      'Sit-Up':                       ['core'],
+      'Decline Sit-Up':               ['core'],
+      'Toe Touch':                    ['core'],
+      'Mountain Climber':             ['core'],
+      'Toes to Bar':                  ['core'],
+      'Cable Woodchop':               ['core'],
     };
 
     const ALL_EXERCISE_NAMES = Object.keys(EXERCISE_MUSCLE_MAP).sort();
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Workout splits
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const SPLITS = [
+      {
+        id: 'chest_back',
+        label: 'Chest / Back',
+        muscles: ['chest', 'back'],
+        defaults: ['Bench Press','Incline Dumbbell Press','Cable Fly','Lat Pulldown','Seated Cable Row','Dumbbell Pullover'],
+      },
+      {
+        id: 'bis_tris',
+        label: 'Biceps / Triceps',
+        muscles: ['biceps', 'triceps'],
+        defaults: ['Barbell Curl','Hammer Curl','Incline Dumbbell Curl','Preacher Curl','Tricep Pushdown','Skull Crushers','Overhead Tricep Extension','Close Grip Bench Press'],
+      },
+      {
+        id: 'shoulders',
+        label: 'Shoulders',
+        muscles: ['shoulders'],
+        defaults: ['Overhead Press','Lateral Raise','Front Raise','Face Pulls','Reverse Flyes','Arnold Press','Cable Lateral Raise','Upright Row'],
+      },
+      {
+        id: 'legs_abs',
+        label: 'Legs / Abs',
+        muscles: ['legs', 'core'],
+        defaults: ['Squat','Leg Press','Romanian Deadlift','Leg Curl','Leg Extension','Calf Raise','Cable Crunch','Hanging Leg Raise','Plank'],
+      },
+      {
+        id: 'back_traps',
+        label: 'Back / Traps',
+        muscles: ['back', 'traps'],
+        defaults: ['Deadlift','Barbell Row','T-Bar Row','Lat Pulldown','Seated Cable Row','Shrugs','Face Pulls'],
+      },
+    ];
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Exercise frequency engine
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function buildExerciseFrequency(workoutsData) {
+      const freq = {};
+      if (!workoutsData) return freq;
+      Object.values(workoutsData).forEach(workout => {
+        if (!workout.exercises) return;
+        Object.values(workout.exercises).forEach(ex => {
+          if (!ex.name) return;
+          freq[ex.name] = (freq[ex.name] || 0) + 1;
+        });
+      });
+      return freq;
+    }
+
+    function getSuggestions(split, frequency) {
+      if (split.id === 'free') return [];
+
+      // All exercises whose muscles overlap with the split's muscles
+      const relevant = Object.entries(EXERCISE_MUSCLE_MAP)
+        .filter(([, muscles]) => muscles.some(m => split.muscles.includes(m)))
+        .map(([name]) => name);
+
+      // Sort by frequency descending, then alphabetically
+      const byFreq = [...relevant].sort((a, b) => {
+        const fa = frequency[a] || 0, fb = frequency[b] || 0;
+        if (fb !== fa) return fb - fa;
+        return a.localeCompare(b);
+      });
+
+      // Merge: frequency-sorted first, then defaults not already included
+      const seen = new Set(byFreq);
+      const merged = [...byFreq];
+      split.defaults.forEach(d => { if (!seen.has(d)) merged.push(d); });
+
+      return merged.map(name => ({ name, selected: split.defaults.includes(name) }));
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Firebase helpers
@@ -295,17 +368,12 @@
     function useFirebase(path) {
       const [data, setData]       = useState(null);
       const [loading, setLoading] = useState(true);
-
       useEffect(() => {
         if (!path) { setLoading(false); return; }
         const ref = db.ref(path);
-        ref.on('value', snap => {
-          setData(snap.val());
-          setLoading(false);
-        });
+        ref.on('value', snap => { setData(snap.val()); setLoading(false); });
         return () => ref.off('value');
       }, [path]);
-
       return [data, loading];
     }
 
@@ -317,16 +385,18 @@
     const localGet = (key) => { try { return JSON.parse(localStorage.getItem(key)); } catch { return null; } };
     const localSet = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
 
-    // Seed exercise names into Firebase if not already present
     async function seedExerciseNames() {
       const snap = await db.ref('drea/exerciseNames').once('value');
-      if (snap.val()) return; // already seeded
+      if (snap.val()) return;
       const updates = {};
       ALL_EXERCISE_NAMES.forEach(name => {
-        const key = db.ref('drea/exerciseNames').push().key;
-        updates[key] = name;
+        updates[db.ref('drea/exerciseNames').push().key] = name;
       });
       await db.ref('drea/exerciseNames').set(updates);
+    }
+
+    function todayKey() {
+      return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -366,17 +436,105 @@
       );
     }
 
+    function IconCheck({ size = 16, color = 'currentColor' }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      );
+    }
+
+    function IconChevronLeft({ size = 20, color = 'currentColor' }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6" />
+        </svg>
+      );
+    }
+
+    function IconChevronRight({ size = 18, color = 'currentColor' }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      );
+    }
+
+    function IconDumbbell({ size = 32, color = '#D4A574' }) {
+      return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+          stroke={color} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 4v16M18 4v16" />
+          <path d="M4 7h4M16 7h4M4 17h4M16 17h4" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+        </svg>
+      );
+    }
+
+    // Per-split icons
+    function SplitIcon({ id, size = 26, color = '#D4A574' }) {
+      const s = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: color, strokeWidth: '1.75', strokeLinecap: 'round', strokeLinejoin: 'round' };
+      if (id === 'chest_back') return (
+        <svg {...s}>
+          <rect x="3" y="10" width="18" height="4" rx="2" />
+          <rect x="1" y="7" width="4" height="10" rx="2" />
+          <rect x="19" y="7" width="4" height="10" rx="2" />
+          <line x1="7" y1="12" x2="17" y2="12" />
+        </svg>
+      );
+      if (id === 'bis_tris') return (
+        <svg {...s}>
+          <path d="M6 18 Q4 12 8 8 Q12 4 14 8" />
+          <path d="M14 8 Q18 12 16 18" />
+          <line x1="6" y1="18" x2="16" y2="18" />
+        </svg>
+      );
+      if (id === 'shoulders') return (
+        <svg {...s}>
+          <circle cx="12" cy="6" r="2" />
+          <path d="M5 12 Q8 8 12 8 Q16 8 19 12" />
+          <line x1="2" y1="12" x2="6" y2="12" />
+          <line x1="18" y1="12" x2="22" y2="12" />
+          <line x1="12" y1="8" x2="12" y2="20" />
+        </svg>
+      );
+      if (id === 'legs_abs') return (
+        <svg {...s}>
+          <path d="M8 3 L8 12 L5 21" />
+          <path d="M16 3 L16 12 L19 21" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+          <line x1="7" y1="3" x2="17" y2="3" />
+        </svg>
+      );
+      if (id === 'back_traps') return (
+        <svg {...s}>
+          <path d="M5 20 Q5 10 12 7 Q19 10 19 20" />
+          <path d="M9 14 Q12 11 15 14" />
+          <path d="M8 17 Q12 14 16 17" />
+        </svg>
+      );
+      // free
+      return (
+        <svg {...s}>
+          <circle cx="12" cy="12" r="9" />
+          <line x1="12" y1="8" x2="12" y2="16" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+        </svg>
+      );
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // ExerciseInput — reusable autocomplete
     // ─────────────────────────────────────────────────────────────────────────
 
     function ExerciseInput({ value, onChange, onSelect, exerciseNames = [], placeholder = 'Exercise name...' }) {
-      const [open, setOpen]         = useState(false);
-      const [query, setQuery]       = useState(value || '');
-      const closeTimer              = useRef(null);
-      const inputRef                = useRef(null);
+      const [open, setOpen]   = useState(false);
+      const [query, setQuery] = useState(value || '');
+      const closeTimer        = useRef(null);
 
-      // Keep local query in sync when value prop changes externally
       useEffect(() => { setQuery(value || ''); }, [value]);
 
       const suggestions = useMemo(() => {
@@ -400,75 +558,35 @@
         setOpen(false);
       };
 
-      const handleFocus = () => {
-        clearTimeout(closeTimer.current);
-        setOpen(true);
-      };
-
-      const handleBlur = () => {
-        // Delay so tap on suggestion registers first
-        closeTimer.current = setTimeout(() => setOpen(false), 150);
-      };
-
       return (
         <div style={{ position: 'relative', width: '100%' }}>
           <input
-            ref={inputRef}
             type="text"
             value={query}
             onChange={handleChange}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
+            onFocus={() => { clearTimeout(closeTimer.current); setOpen(true); }}
+            onBlur={() => { closeTimer.current = setTimeout(() => setOpen(false), 150); }}
             placeholder={placeholder}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="words"
-            spellCheck="false"
+            autoComplete="off" autoCorrect="off" autoCapitalize="words" spellCheck="false"
             style={{
-              width: '100%',
-              background: '#222222',
-              border: '1px solid #2e2e2e',
-              borderRadius: 10,
-              padding: '10px 14px',
-              color: '#F0EDE8',
-              fontSize: 15,
-              fontWeight: 500,
-              outline: 'none',
-              transition: 'border-color 0.15s',
+              width: '100%', background: '#222', border: '1px solid #2e2e2e',
+              borderRadius: 10, padding: '10px 14px', color: '#F0EDE8',
+              fontSize: 15, fontWeight: 500, outline: 'none',
             }}
-            onMouseEnter={e => e.target.style.borderColor = '#D4A574'}
-            onMouseLeave={e => { if (document.activeElement !== e.target) e.target.style.borderColor = '#2e2e2e'; }}
           />
-
           {open && suggestions.length > 0 && (
             <div style={{
-              position: 'absolute',
-              top: 'calc(100% + 4px)',
-              left: 0,
-              right: 0,
-              background: '#1e1e1e',
-              border: '1px solid #2e2e2e',
-              borderRadius: 10,
-              overflow: 'hidden',
-              zIndex: 100,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0,
+              background: '#1e1e1e', border: '1px solid #2e2e2e', borderRadius: 10,
+              overflow: 'hidden', zIndex: 200, boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
             }}>
               {suggestions.map(name => (
-                <button
-                  key={name}
-                  onMouseDown={() => handleSelect(name)}
+                <button key={name} onMouseDown={() => handleSelect(name)}
                   style={{
-                    display: 'block',
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '11px 14px',
-                    background: 'none',
-                    border: 'none',
-                    borderBottom: '1px solid #262626',
-                    color: '#F0EDE8',
-                    fontSize: 14,
-                    cursor: 'pointer',
-                    transition: 'background 0.1s',
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '11px 14px', background: 'none', border: 'none',
+                    borderBottom: '1px solid #262626', color: '#F0EDE8',
+                    fontSize: 14, cursor: 'pointer',
                   }}
                   onMouseEnter={e => e.currentTarget.style.background = '#2a2a2a'}
                   onMouseLeave={e => e.currentTarget.style.background = 'none'}
@@ -488,17 +606,8 @@
 
     function SeedingScreen() {
       return (
-        <div style={{
-          height: '100dvh',
-          background: '#0f0f0f',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 16,
-        }}>
-          <svg className="spin" width="28" height="28" viewBox="0 0 24 24" fill="none"
-            stroke="#D4A574" strokeWidth="2" strokeLinecap="round">
+        <div style={{ height: '100dvh', background: '#0f0f0f', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <svg className="spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D4A574" strokeWidth="2" strokeLinecap="round">
             <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
           </svg>
           <p style={{ color: '#8A8680', fontSize: 13 }}>Setting up your exercise library...</p>
@@ -507,30 +616,252 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Tab placeholders
+    // Today tab — state machine
     // ─────────────────────────────────────────────────────────────────────────
 
-    function TodayTab({ exerciseNames }) {
+    // Step 1: Choose a split
+    function SplitPickerStep1({ onSelect, onCancel }) {
+      const FREE = { id: 'free', label: 'Free Workout', muscles: [] };
       return (
-        <div className="fade-in" style={{ padding: '24px 20px' }}>
-          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#F0EDE8', marginBottom: 24 }}>Today</h2>
+        <div className="fade-in" style={{ padding: '20px 20px 32px' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <div>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: '#F0EDE8', lineHeight: 1.2 }}>What are you training?</h2>
+              <p style={{ fontSize: 13, color: '#8A8680', marginTop: 4 }}>Pick a split for exercise suggestions.</p>
+            </div>
+            <button onClick={onCancel} style={{ background: 'none', border: 'none', color: '#8A8680', fontSize: 14, cursor: 'pointer', padding: '4px 0' }}>
+              Cancel
+            </button>
+          </div>
 
-          {/* ExerciseInput demo — will be replaced in Phase 2b */}
-          <div style={{ background: '#1a1a1a', border: '1px solid #262626', borderRadius: 14, padding: 16 }}>
-            <p style={{ color: '#8A8680', fontSize: 12, fontWeight: 500, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Exercise search (Phase 1b preview)</p>
-            <ExerciseInput
-              exerciseNames={exerciseNames}
-              placeholder="Try searching an exercise..."
-              onChange={() => {}}
-            />
+          {/* Split cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {SPLITS.map(split => (
+              <button
+                key={split.id}
+                onClick={() => { navigator.vibrate && navigator.vibrate(10); onSelect(split); }}
+                className="press-scale"
+                style={{
+                  background: '#1a1a1a', border: '1px solid #262626', borderRadius: 14,
+                  padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16,
+                  cursor: 'pointer', textAlign: 'left', width: '100%',
+                }}
+              >
+                <div style={{ flexShrink: 0 }}>
+                  <SplitIcon id={split.id} size={26} color="#D4A574" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: '#F0EDE8' }}>{split.label}</div>
+                  <div style={{ fontSize: 12, color: '#8A8680', marginTop: 3 }}>
+                    {split.defaults.slice(0, 3).join(' · ')}
+                  </div>
+                </div>
+                <IconChevronRight size={16} color="#4A4744" />
+              </button>
+            ))}
+
+            {/* Free workout — dashed border */}
+            <button
+              onClick={() => { navigator.vibrate && navigator.vibrate(10); onSelect(FREE); }}
+              className="press-scale"
+              style={{
+                background: 'transparent', border: '1.5px dashed #2e2e2e', borderRadius: 14,
+                padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 16,
+                cursor: 'pointer', textAlign: 'left', width: '100%', marginTop: 4,
+              }}
+            >
+              <div style={{ flexShrink: 0 }}>
+                <SplitIcon id="free" size={26} color="#8A8680" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: '#F0EDE8' }}>Free Workout</div>
+                <div style={{ fontSize: 12, color: '#8A8680', marginTop: 3 }}>Log anything — no suggestions</div>
+              </div>
+              <IconChevronRight size={16} color="#4A4744" />
+            </button>
           </div>
         </div>
       );
     }
 
+    // Step 2: Toggle exercises
+    function SplitPickerStep2({ split, exercises, onToggle, onBack, onCancel, onStart }) {
+      const selectedCount = exercises.filter(e => e.selected).length;
+      return (
+        <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          {/* Header */}
+          <div style={{ padding: '16px 20px 14px', borderBottom: '1px solid #1e1e1e', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button onClick={onBack}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center', color: '#8A8680' }}>
+                <IconChevronLeft size={20} color="#8A8680" />
+              </button>
+              <div style={{ flex: 1 }}>
+                <h2 style={{ fontSize: 17, fontWeight: 700, color: '#F0EDE8' }}>{split.label}</h2>
+                <p style={{ fontSize: 12, color: '#8A8680', marginTop: 2 }}>Tap to add or remove exercises.</p>
+              </div>
+              <button onClick={onCancel} style={{ background: 'none', border: 'none', color: '#8A8680', fontSize: 13, cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+
+          {/* Exercise list */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
+            {exercises.map((ex, i) => (
+              <button
+                key={ex.name}
+                onClick={() => onToggle(i)}
+                className="press-scale"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14, width: '100%',
+                  padding: '12px 14px', marginBottom: 6,
+                  background: ex.selected ? 'rgba(212,165,116,0.07)' : '#1a1a1a',
+                  border: `1px solid ${ex.selected ? '#D4A574' : '#262626'}`,
+                  borderRadius: 11, cursor: 'pointer', textAlign: 'left',
+                  opacity: ex.selected ? 1 : 0.55, transition: 'all 0.15s',
+                }}
+              >
+                {/* Checkbox */}
+                <div style={{
+                  width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                  background: ex.selected ? '#D4A574' : 'transparent',
+                  border: `1.5px solid ${ex.selected ? '#D4A574' : '#3a3a3a'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'all 0.15s',
+                }}>
+                  {ex.selected && <IconCheck size={11} color="#0f0f0f" />}
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 500, color: '#F0EDE8' }}>{ex.name}</span>
+              </button>
+            ))}
+            {/* Bottom padding so last item clears the sticky footer */}
+            <div style={{ height: 90 }} />
+          </div>
+
+          {/* Sticky bottom bar */}
+          <div style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            padding: '12px 20px', background: '#0f0f0f',
+            borderTop: '1px solid #1e1e1e',
+            paddingBottom: 'calc(12px + env(safe-area-inset-bottom, 0px))',
+          }}>
+            <button
+              onClick={() => { navigator.vibrate && navigator.vibrate(20); onStart(); }}
+              disabled={selectedCount === 0}
+              className="press-scale"
+              style={{
+                width: '100%', padding: '14px 20px', borderRadius: 12, border: 'none',
+                background: selectedCount > 0 ? '#D4A574' : '#2a2a2a',
+                color: selectedCount > 0 ? '#0f0f0f' : '#4A4744',
+                fontSize: 15, fontWeight: 700, cursor: selectedCount > 0 ? 'pointer' : 'default',
+                transition: 'background 0.2s, color 0.2s',
+              }}
+            >
+              {selectedCount > 0 ? `Start Workout (${selectedCount})` : 'Select at least one exercise'}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Today home — "Ready to lift?" hero card
+    function TodayHome({ onOpenPicker }) {
+      return (
+        <div className="fade-in" style={{ padding: '28px 20px 0' }}>
+          {/* Hero card */}
+          <div style={{
+            background: '#1a1a1a', border: '1px solid #262626', borderRadius: 18,
+            padding: '28px 24px', textAlign: 'center',
+          }}>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}>
+              <IconDumbbell size={40} color="#D4A574" />
+            </div>
+            <h3 style={{ fontSize: 20, fontWeight: 700, color: '#F0EDE8', marginBottom: 8 }}>Ready to lift?</h3>
+            <p style={{ fontSize: 14, color: '#8A8680', marginBottom: 24, lineHeight: 1.5 }}>
+              Track your exercises, sets, and reps.
+            </p>
+            <button
+              onClick={() => { navigator.vibrate && navigator.vibrate(20); onOpenPicker(); }}
+              className="press-scale"
+              style={{
+                width: '100%', padding: '14px 20px', borderRadius: 12, border: 'none',
+                background: '#D4A574', color: '#0f0f0f', fontSize: 15, fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              Start Workout
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Main TodayTab — orchestrates the state machine
+    function TodayTab({ exerciseNames, workoutsData, onStartWorkout, todayWorkout }) {
+      const [step, setStep]                   = useState('home');   // 'home' | 'pick_split' | 'pick_exercises'
+      const [selectedSplit, setSelectedSplit] = useState(null);
+      const [pickerExercises, setPickerExercises] = useState([]);
+
+      const frequency = useMemo(() => buildExerciseFrequency(workoutsData), [workoutsData]);
+
+      const handleSelectSplit = (split) => {
+        setSelectedSplit(split);
+        if (split.id === 'free') {
+          // Free workout: start immediately with no pre-selected exercises
+          onStartWorkout([], split);
+        } else {
+          setPickerExercises(getSuggestions(split, frequency));
+          setStep('pick_exercises');
+        }
+      };
+
+      const handleToggle = (index) => {
+        setPickerExercises(prev => prev.map((ex, i) => i === index ? { ...ex, selected: !ex.selected } : ex));
+      };
+
+      const handleStart = () => {
+        onStartWorkout(pickerExercises.filter(e => e.selected), selectedSplit);
+      };
+
+      const handleCancel = () => {
+        setStep('home');
+        setSelectedSplit(null);
+        setPickerExercises([]);
+      };
+
+      if (step === 'pick_split') {
+        return (
+          <SplitPickerStep1
+            onSelect={handleSelectSplit}
+            onCancel={handleCancel}
+          />
+        );
+      }
+
+      if (step === 'pick_exercises' && selectedSplit) {
+        return (
+          <SplitPickerStep2
+            split={selectedSplit}
+            exercises={pickerExercises}
+            onToggle={handleToggle}
+            onBack={() => setStep('pick_split')}
+            onCancel={handleCancel}
+            onStart={handleStart}
+          />
+        );
+      }
+
+      return <TodayHome onOpenPicker={() => setStep('pick_split')} />;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // History + You tabs (placeholder)
+    // ─────────────────────────────────────────────────────────────────────────
+
     function HistoryTab() {
       return (
-        <div className="fade-in" style={{ padding: '24px 20px' }}>
+        <div className="fade-in" style={{ padding: '28px 20px' }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: '#F0EDE8' }}>History</h2>
         </div>
       );
@@ -538,7 +869,7 @@
 
     function YouTab() {
       return (
-        <div className="fade-in" style={{ padding: '24px 20px' }}>
+        <div className="fade-in" style={{ padding: '28px 20px' }}>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: '#F0EDE8' }}>You</h2>
         </div>
       );
@@ -556,58 +887,27 @@
 
     function BottomNav({ activeTab, onTabPress }) {
       return (
-        <nav
-          role="navigation"
-          aria-label="Main navigation"
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            width: '100%',
-            maxWidth: 480,
-            background: '#111111',
-            borderTop: '1px solid #1e1e1e',
-            display: 'flex',
-            paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-            zIndex: 50,
-          }}
-        >
+        <nav role="navigation" aria-label="Main navigation" style={{
+          position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+          width: '100%', maxWidth: 480, background: '#111', borderTop: '1px solid #1e1e1e',
+          display: 'flex', paddingBottom: 'env(safe-area-inset-bottom, 0px)', zIndex: 50,
+        }}>
           {TABS.map(({ id, label, Icon }) => {
-            const isActive = activeTab === id;
+            const active = activeTab === id;
             return (
-              <button
-                key={id}
-                onClick={() => onTabPress(id)}
-                aria-label={label}
-                aria-current={isActive ? 'page' : undefined}
+              <button key={id} onClick={() => onTabPress(id)}
+                aria-label={label} aria-current={active ? 'page' : undefined}
                 style={{
-                  flex: 1,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: 3,
-                  paddingTop: 10,
-                  paddingBottom: 10,
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: isActive ? '#D4A574' : '#4A4744',
-                  transition: 'color 0.2s',
-                  WebkitTapHighlightColor: 'transparent',
-                  userSelect: 'none',
-                }}
-              >
-                <Icon size={22} color={isActive ? '#D4A574' : '#4A4744'} />
-                <span style={{ fontSize: 10, fontWeight: isActive ? 600 : 400, letterSpacing: '0.03em', lineHeight: 1 }}>
+                  flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                  justifyContent: 'center', gap: 3, paddingTop: 10, paddingBottom: 10,
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: active ? '#D4A574' : '#4A4744', transition: 'color 0.2s', userSelect: 'none',
+                }}>
+                <Icon size={22} color={active ? '#D4A574' : '#4A4744'} />
+                <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, letterSpacing: '0.03em', lineHeight: 1 }}>
                   {label}
                 </span>
-                <div style={{
-                  width: 4, height: 4, borderRadius: '50%',
-                  background: isActive ? '#D4A574' : 'transparent',
-                  transition: 'background 0.2s',
-                }} />
+                <div style={{ width: 4, height: 4, borderRadius: '50%', background: active ? '#D4A574' : 'transparent', transition: 'background 0.2s' }} />
               </button>
             );
           })}
@@ -623,14 +923,16 @@
       const [activeTab, setActiveTab] = useState('today');
       const [seeding, setSeeding]     = useState(false);
 
-      // Firebase exercise names (live listener)
       const [exerciseNamesData] = useFirebase('drea/exerciseNames');
+      const [workoutsData]      = useFirebase('drea/workouts');
+
       const exerciseNames = useMemo(() => {
         if (!exerciseNamesData) return ALL_EXERCISE_NAMES;
         return [...new Set(Object.values(exerciseNamesData))].sort();
       }, [exerciseNamesData]);
 
-      // Seed on first load
+      const todayWorkout = workoutsData ? workoutsData[todayKey()] : null;
+
       useEffect(() => {
         (async () => {
           const snap = await db.ref('drea/exerciseNames').once('value');
@@ -642,44 +944,36 @@
         })();
       }, []);
 
-      const handleTabPress = (tabId) => {
+      const handleTabPress = (id) => {
         navigator.vibrate && navigator.vibrate(10);
-        setActiveTab(tabId);
+        setActiveTab(id);
+      };
+
+      // Called when user confirms exercises and hits "Start Workout (N)"
+      // Phase 2b will expand this into a full active logger
+      const handleStartWorkout = (exercises, split) => {
+        console.log('Starting workout:', split.label, exercises.map(e => e.name));
+        // TODO Phase 2b: setActiveWorkout({ exercises, split, startTime: Date.now() })
       };
 
       if (seeding) return <SeedingScreen />;
 
       return (
-        <div style={{
-          background: '#0f0f0f',
-          height: '100dvh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}>
-          <div style={{
-            width: '100%',
-            maxWidth: 480,
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            position: 'relative',
-          }}>
-            <main
-              role="main"
-              style={{
-                flex: 1,
-                overflowY: 'auto',
-                paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
-                height: '100%',
-              }}
-            >
-              {activeTab === 'today'   && <TodayTab   key="today"   exerciseNames={exerciseNames} />}
+        <div style={{ background: '#0f0f0f', height: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ width: '100%', maxWidth: 480, flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+            <main role="main" style={{ flex: 1, overflowY: 'auto', paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))', height: '100%' }}>
+              {activeTab === 'today' && (
+                <TodayTab
+                  key="today"
+                  exerciseNames={exerciseNames}
+                  workoutsData={workoutsData}
+                  todayWorkout={todayWorkout}
+                  onStartWorkout={handleStartWorkout}
+                />
+              )}
               {activeTab === 'history' && <HistoryTab key="history" />}
               {activeTab === 'you'     && <YouTab     key="you"     />}
             </main>
-
             <BottomNav activeTab={activeTab} onTabPress={handleTabPress} />
           </div>
         </div>
@@ -687,13 +981,11 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Service worker registration
+    // Service worker + mount
     // ─────────────────────────────────────────────────────────────────────────
 
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
-      });
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
     }
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App />);
