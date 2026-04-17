@@ -72,6 +72,11 @@
     * { -webkit-tap-highlight-color: transparent; }
     .press-scale { transition: transform 0.12s ease, opacity 0.12s ease; }
     .press-scale:active { transform: scale(0.97); opacity: 0.85; }
+
+    @keyframes slideUp { from { transform:translateY(100%); } to { transform:translateY(0); } }
+    .slide-up { animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1) both; }
+
+    @keyframes dotBounce { 0%,80%,100%{transform:translateY(0);opacity:0.35} 40%{transform:translateY(-5px);opacity:1} }
   </style>
 </head>
 <body>
@@ -342,6 +347,68 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // AI Coach — context builder
+    // ─────────────────────────────────────────────────────────────────────────
+
+    const ANTHROPIC_KEY_LS = 'drea_anthropic_key';
+
+    function buildCoachSystemPrompt(workoutsData, bodyWeightsData, personalRecordsData) {
+      const today = new Date().toLocaleDateString('en-US',
+        {weekday:'long',month:'long',day:'numeric',year:'numeric'});
+
+      const recentWorkouts = workoutsData
+        ? Object.entries(workoutsData).sort(([a],[b])=>b.localeCompare(a)).slice(0,10)
+            .map(([date,w]) => {
+              const lbl = SPLITS.find(s=>s.id===w.split)?.label||'Free Workout';
+              const exs = w.exercises
+                ? Object.values(w.exercises).map(e=>e.name).filter(Boolean).join(', ')
+                : '—';
+              return `  ${date} | ${lbl} | ${(w.totalVolume||0).toLocaleString()} lbs | ${exs}`;
+            }).join('\n')
+        : '  No workouts yet.';
+
+      const bwStr = bodyWeightsData
+        ? Object.values(bodyWeightsData).sort((a,b)=>b.timestamp-a.timestamp).slice(0,5)
+            .map(e=>`${e.date}: ${e.weight} lbs`).join(', ')
+        : 'None.';
+
+      const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-30);
+      const cutoffKey = cutoff.toISOString().slice(0,10);
+      const mf = {};
+      if (workoutsData) {
+        Object.entries(workoutsData).filter(([d])=>d>=cutoffKey).forEach(([,w])=>{
+          if (!w.exercises) return;
+          Object.values(w.exercises).forEach(ex => {
+            (EXERCISE_MUSCLE_MAP[ex.name]||[]).forEach(m=>{ mf[m]=(mf[m]||0)+1; });
+          });
+        });
+      }
+      const muscleStr = Object.entries(mf).length
+        ? Object.entries(mf).sort(([,a],[,b])=>b-a).map(([m,c])=>`${m}(${c}x)`).join(', ')
+        : 'No recent data.';
+
+      const prStr = personalRecordsData
+        ? Object.values(personalRecordsData).filter(p=>p&&p.name)
+            .map(p=>`${p.name}: ${p.weight}×${p.reps} lbs (e1RM ${p.est1rm})`).join('; ')||'None yet.'
+        : 'None yet.';
+
+      return `You are Drea, Andrea's personal AI fitness coach. Be warm, direct, and data-driven. Keep responses concise — 2-4 sentences unless deeper detail is needed. Reference her actual data when relevant.
+
+Today: ${today}
+
+Recent workouts (newest first):
+${recentWorkouts}
+
+Body weight (last 5 entries): ${bwStr}
+
+Muscle training frequency last 30 days: ${muscleStr}
+
+Personal records: ${prStr}
+
+Be encouraging, specific, and practical. Don't pad responses.`;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Firebase helpers
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -566,6 +633,12 @@
       <path d="M6 4v16M18 4v16"/>
       <path d="M4 7h4M16 7h4M4 17h4M16 17h4"/>
       <line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>;
+
+    const IconSparkle = ({size=22,color='currentColor'}) => <svg {...svgBase(size,color,'1.5')}>
+      <path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5z"/>
+      <path d="M19 14.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/>
+      <path d="M5 17.5l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5-1.5-.5 1.5-.5z"/>
     </svg>;
 
     function SplitIcon({ id, size=26, color='#D4A574' }) {
@@ -2174,6 +2247,301 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // CoachPanel — slide-up AI coaching interface
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function CoachPanel({ open, onClose, workoutsData, bodyWeightsData, personalRecordsData }) {
+      const [messages, setMessages]   = useState([]);
+      const [input, setInput]         = useState('');
+      const [loading, setLoading]     = useState(false);
+      const [apiKey, setApiKey]       = useState(() => localStorage.getItem(ANTHROPIC_KEY_LS)||'');
+      const [keyDraft, setKeyDraft]   = useState('');
+      const [keyError, setKeyError]   = useState('');
+      const [showSetup, setShowSetup] = useState(() => !localStorage.getItem(ANTHROPIC_KEY_LS));
+      const msgsEndRef                = useRef(null);
+
+      useEffect(() => {
+        if (open) msgsEndRef.current?.scrollIntoView({ behavior:'smooth' });
+      }, [messages, loading, open]);
+
+      const systemPrompt = useMemo(() =>
+        buildCoachSystemPrompt(workoutsData, bodyWeightsData, personalRecordsData),
+        [workoutsData, bodyWeightsData, personalRecordsData]
+      );
+
+      const saveKey = () => {
+        const k = keyDraft.trim();
+        if (!k) { setKeyError('Please enter your API key.'); return; }
+        if (!k.startsWith('sk-ant-')) { setKeyError('Key should start with sk-ant-'); return; }
+        localStorage.setItem(ANTHROPIC_KEY_LS, k);
+        setApiKey(k); setShowSetup(false); setKeyDraft(''); setKeyError('');
+      };
+
+      const sendMsg = async (text) => {
+        const t = text.trim();
+        if (!t || loading || !apiKey) return;
+        const userMsg = { role:'user', content:t };
+        const updated = [...messages, userMsg];
+        setMessages(updated); setInput(''); setLoading(true);
+        try {
+          const ctrl = new AbortController();
+          const tid  = setTimeout(()=>ctrl.abort(), 15000);
+          const res  = await fetch('https://api.anthropic.com/v1/messages', {
+            method:'POST',
+            headers:{
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+              'anthropic-dangerous-request-origin': 'drea-fitness-pwa',
+              'content-type': 'application/json',
+            },
+            body: JSON.stringify({
+              model:'claude-sonnet-4-20250514',
+              max_tokens:512,
+              system:systemPrompt,
+              messages:updated.map(m=>({role:m.role,content:m.content})),
+            }),
+            signal: ctrl.signal,
+          });
+          clearTimeout(tid);
+          if (!res.ok) {
+            const body = await res.json().catch(()=>({}));
+            const msg = res.status===401
+              ? 'Invalid API key. Tap the key icon to update it.'
+              : body.error?.message||`API error (${res.status})`;
+            throw new Error(msg);
+          }
+          const data  = await res.json();
+          const reply = data.content?.[0]?.text||'No response received.';
+          setMessages(prev=>[...prev,{role:'assistant',content:reply}]);
+        } catch(err) {
+          let errMsg;
+          if (err.name==='AbortError') errMsg='Request timed out. Check your connection.';
+          else if (err.message?.includes('Failed to fetch')||err.message?.includes('NetworkError'))
+            errMsg='Coaching is offline right now. Try again later.';
+          else errMsg = err.message||'Something went wrong.';
+          setMessages(prev=>[...prev,{role:'assistant',content:errMsg,isError:true}]);
+        } finally { setLoading(false); }
+      };
+
+      const QUICK = [
+        "What should I train next?",
+        "Am I making progress?",
+        "What muscles am I neglecting?",
+        "Give me a training tip",
+      ];
+
+      if (!open) return null;
+
+      return (
+        <>
+          {/* Backdrop */}
+          <div onClick={onClose} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.55)',zIndex:90}}/>
+
+          {/* Panel */}
+          <div className="slide-up" style={{
+            position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',
+            width:'100%',maxWidth:480,height:'82vh',
+            background:'#111',borderRadius:'20px 20px 0 0',
+            borderTop:'1px solid #222',
+            display:'flex',flexDirection:'column',zIndex:91,
+          }}>
+
+            {/* Drag handle */}
+            <div style={{display:'flex',justifyContent:'center',padding:'10px 0 2px',flexShrink:0}}>
+              <div style={{width:36,height:4,borderRadius:2,background:'#2e2e2e'}}/>
+            </div>
+
+            {/* Header */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+              padding:'6px 18px 12px',flexShrink:0,borderBottom:'1px solid #1a1a1a'}}>
+              <div style={{display:'flex',alignItems:'center',gap:9}}>
+                <IconSparkle size={17} color="#D4A574"/>
+                <span style={{fontSize:17,fontWeight:700,color:'#F0EDE8'}}>Coach</span>
+              </div>
+              <div style={{display:'flex',gap:2,alignItems:'center'}}>
+                <button onClick={()=>setShowSetup(true)} title="API key settings"
+                  style={{background:'none',border:'none',cursor:'pointer',
+                    color:'#3a3a3a',padding:7,borderRadius:7,display:'flex',alignItems:'center',
+                    transition:'color 0.15s'}}
+                  onMouseEnter={e=>e.currentTarget.style.color='#8A8680'}
+                  onMouseLeave={e=>e.currentTarget.style.color='#3a3a3a'}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="7.5" cy="15.5" r="5.5"/>
+                    <path d="M21 2l-9.6 9.6M15.5 7.5l5.5.5-.5-5.5"/>
+                  </svg>
+                </button>
+                {messages.length > 0 && (
+                  <button onClick={()=>setMessages([])}
+                    style={{background:'none',border:'none',cursor:'pointer',
+                      color:'#4A4744',padding:'4px 8px',borderRadius:7,fontSize:12,
+                      transition:'color 0.15s'}}
+                    onMouseEnter={e=>e.currentTarget.style.color='#8A8680'}
+                    onMouseLeave={e=>e.currentTarget.style.color='#4A4744'}>
+                    Clear
+                  </button>
+                )}
+                <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',
+                  color:'#8A8680',padding:7,display:'flex',alignItems:'center'}}>
+                  <IconX size={16} color="currentColor"/>
+                </button>
+              </div>
+            </div>
+
+            {showSetup ? (
+              /* ── API Key Setup ── */
+              <div style={{flex:1,padding:'28px 24px',display:'flex',flexDirection:'column',
+                alignItems:'center',justifyContent:'center',gap:18,textAlign:'center'}}>
+                <div style={{width:56,height:56,borderRadius:'50%',
+                  background:'rgba(212,165,116,0.1)',border:'1px solid rgba(212,165,116,0.25)',
+                  display:'flex',alignItems:'center',justifyContent:'center'}}>
+                  <IconSparkle size={26} color="#D4A574"/>
+                </div>
+                <div>
+                  <p style={{fontSize:17,fontWeight:700,color:'#F0EDE8',marginBottom:6}}>
+                    {apiKey ? 'Update API Key' : 'Set up your Coach'}
+                  </p>
+                  <p style={{fontSize:13,color:'#8A8680',lineHeight:1.65}}>
+                    Enter your Anthropic API key to enable AI coaching.<br/>
+                    Stored locally — never leaves your device.
+                  </p>
+                </div>
+                <div style={{width:'100%',maxWidth:320}}>
+                  <input type="password" value={keyDraft}
+                    onChange={e=>{setKeyDraft(e.target.value);setKeyError('');}}
+                    placeholder="sk-ant-..."
+                    onKeyDown={e=>{if(e.key==='Enter')saveKey();}}
+                    style={{width:'100%',background:'#1a1a1a',
+                      border:`1px solid ${keyError?'#C47070':'#2e2e2e'}`,
+                      borderRadius:11,padding:'12px 14px',color:'#F0EDE8',fontSize:14,
+                      outline:'none',fontFamily:'inherit',transition:'border-color 0.15s'}}
+                    onFocus={e=>e.target.style.borderColor=keyError?'#C47070':'#D4A574'}
+                    onBlur={e=>e.target.style.borderColor=keyError?'#C47070':'#2e2e2e'}
+                  />
+                  {keyError && (
+                    <p style={{fontSize:12,color:'#C47070',marginTop:5,textAlign:'left'}}>{keyError}</p>
+                  )}
+                </div>
+                <button onClick={saveKey} disabled={!keyDraft.trim()} className="press-scale"
+                  style={{padding:'12px 32px',borderRadius:12,border:'none',cursor:'pointer',
+                    background:keyDraft.trim()?'#D4A574':'#2a2a2a',
+                    color:keyDraft.trim()?'#0f0f0f':'#4A4744',
+                    fontSize:15,fontWeight:700,transition:'all 0.2s'}}>
+                  Save Key
+                </button>
+                {apiKey && (
+                  <button onClick={()=>{setShowSetup(false);setKeyDraft('');setKeyError('');}}
+                    style={{background:'none',border:'none',cursor:'pointer',color:'#4A4744',fontSize:13}}>
+                    Cancel
+                  </button>
+                )}
+              </div>
+            ) : (
+              <>
+                {/* ── Messages ── */}
+                <div style={{flex:1,overflowY:'auto',padding:'14px 16px 6px'}}>
+                  {messages.length === 0 ? (
+                    <div style={{paddingTop:8}}>
+                      <p style={{fontSize:14,color:'#8A8680',marginBottom:18,lineHeight:1.6,textAlign:'center'}}>
+                        Hey Andrea — what's on your mind?
+                      </p>
+                      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+                        {QUICK.map(q => (
+                          <button key={q} onClick={()=>sendMsg(q)} className="press-scale"
+                            style={{padding:'12px 16px',borderRadius:12,
+                              border:'1px solid #262626',background:'#1a1a1a',
+                              color:'#F0EDE8',fontSize:14,cursor:'pointer',textAlign:'left',
+                              transition:'all 0.15s',width:'100%'}}
+                            onMouseEnter={e=>{e.currentTarget.style.borderColor='rgba(212,165,116,0.5)';e.currentTarget.style.color='#D4A574';}}
+                            onMouseLeave={e=>{e.currentTarget.style.borderColor='#262626';e.currentTarget.style.color='#F0EDE8';}}>
+                            {q}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                      {messages.map((m,i) => (
+                        <div key={i} style={{display:'flex',
+                          justifyContent:m.role==='user'?'flex-end':'flex-start',
+                          alignItems:'flex-start',gap:8}}>
+                          {m.role==='assistant' && (
+                            <div style={{width:26,height:26,borderRadius:'50%',flexShrink:0,marginTop:1,
+                              background:'rgba(212,165,116,0.08)',border:'1px solid rgba(212,165,116,0.22)',
+                              display:'flex',alignItems:'center',justifyContent:'center'}}>
+                              <IconSparkle size={12} color="#D4A574"/>
+                            </div>
+                          )}
+                          <div style={{
+                            maxWidth:'80%',padding:'10px 13px',
+                            borderRadius:m.role==='user'?'14px 14px 4px 14px':'4px 14px 14px 14px',
+                            background:m.role==='user'?'rgba(212,165,116,0.09)':'#1a1a1a',
+                            border:m.role==='user'?'1px solid rgba(212,165,116,0.2)':'1px solid #262626',
+                            fontSize:14,color:m.isError?'#C47070':'#F0EDE8',lineHeight:1.55,
+                            whiteSpace:'pre-wrap',wordBreak:'break-word',
+                          }}>
+                            {m.content}
+                          </div>
+                        </div>
+                      ))}
+                      {loading && (
+                        <div style={{display:'flex',alignItems:'flex-start',gap:8}}>
+                          <div style={{width:26,height:26,borderRadius:'50%',flexShrink:0,marginTop:1,
+                            background:'rgba(212,165,116,0.08)',border:'1px solid rgba(212,165,116,0.22)',
+                            display:'flex',alignItems:'center',justifyContent:'center'}}>
+                            <IconSparkle size={12} color="#D4A574"/>
+                          </div>
+                          <div style={{padding:'12px 14px',borderRadius:'4px 14px 14px 14px',
+                            background:'#1a1a1a',border:'1px solid #262626'}}>
+                            <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                              {[0,1,2].map(i=>(
+                                <div key={i} style={{width:6,height:6,borderRadius:'50%',background:'#4A4744',
+                                  animation:`dotBounce 1.2s ease-in-out ${i*0.15}s infinite`}}/>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <div ref={msgsEndRef} style={{height:4}}/>
+                    </div>
+                  )}
+                </div>
+
+                {/* ── Input bar ── */}
+                <div style={{padding:'8px 12px',flexShrink:0,borderTop:'1px solid #1a1a1a',
+                  display:'flex',gap:8,alignItems:'flex-end',
+                  paddingBottom:'max(8px, env(safe-area-inset-bottom, 8px))'}}>
+                  <textarea value={input} onChange={e=>setInput(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg(input);} }}
+                    placeholder="Ask your coach..."
+                    rows={1}
+                    style={{flex:1,background:'#1a1a1a',border:'1px solid #262626',
+                      borderRadius:12,padding:'10px 13px',color:'#F0EDE8',fontSize:14,
+                      outline:'none',fontFamily:'inherit',resize:'none',lineHeight:1.5,
+                      maxHeight:80,overflowY:'auto',transition:'border-color 0.15s'}}
+                    onFocus={e=>e.target.style.borderColor='#3a3a3a'}
+                    onBlur={e=>e.target.style.borderColor='#262626'}
+                  />
+                  <button onClick={()=>sendMsg(input)} disabled={loading||!input.trim()} className="press-scale"
+                    style={{width:40,height:40,borderRadius:12,border:'none',flexShrink:0,
+                      background:input.trim()&&!loading?'#D4A574':'#2a2a2a',
+                      display:'flex',alignItems:'center',justifyContent:'center',
+                      cursor:input.trim()&&!loading?'pointer':'default',transition:'background 0.2s'}}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                      stroke={input.trim()&&!loading?'#0f0f0f':'#4A4744'}
+                      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13"/>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                    </svg>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Bottom nav
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -2213,14 +2581,16 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     function App() {
-      const [activeTab, setActiveTab]       = useState('today');
-      const [seeding, setSeeding]           = useState(false);
+      const [activeTab, setActiveTab]         = useState('today');
+      const [seeding, setSeeding]             = useState(false);
       const [activeWorkout, setActiveWorkout] = useState(null);
-      const [newPRs, setNewPRs]             = useState([]);
+      const [newPRs, setNewPRs]               = useState([]);
+      const [coachOpen, setCoachOpen]         = useState(false);
 
       const [exerciseNamesData]    = useFirebase('drea/exerciseNames');
       const [workoutsData]         = useFirebase('drea/workouts');
       const [personalRecordsData]  = useFirebase('drea/personalRecords');
+      const [bodyWeightsData]      = useFirebase('drea/bodyWeights');
 
       const exerciseNames = useMemo(() => {
         if (!exerciseNamesData) return ALL_EXERCISE_NAMES;
@@ -2285,6 +2655,34 @@
             </main>
             <BottomNav activeTab={activeTab} onTabPress={handleTabPress}/>
           </div>
+
+          {/* Floating coach button */}
+          {!coachOpen && (
+            <button
+              onClick={()=>{ navigator.vibrate&&navigator.vibrate(15); setCoachOpen(true); }}
+              className="press-scale"
+              aria-label="Open AI Coach"
+              style={{
+                position:'fixed',
+                bottom:'calc(64px + env(safe-area-inset-bottom, 0px) + 14px)',
+                right:16,
+                width:52,height:52,borderRadius:'50%',
+                background:'#D4A574',border:'none',cursor:'pointer',
+                display:'flex',alignItems:'center',justifyContent:'center',
+                boxShadow:'0 4px 18px rgba(212,165,116,0.38)',
+                zIndex:60,
+              }}>
+              <IconSparkle size={20} color="#0f0f0f"/>
+            </button>
+          )}
+
+          <CoachPanel
+            open={coachOpen}
+            onClose={()=>setCoachOpen(false)}
+            workoutsData={workoutsData}
+            bodyWeightsData={bodyWeightsData}
+            personalRecordsData={personalRecordsData}
+          />
         </div>
       );
     }
