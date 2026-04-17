@@ -452,7 +452,7 @@ Build the weekly summary cards on the Today tab.
 
 ---
 
-## PHASE 6 — AI Coach Panel ⬜
+## PHASE 6 — AI Coach Panel ✅
 Build the Claude-powered coaching layer.
 
 **Floating coach button:**
