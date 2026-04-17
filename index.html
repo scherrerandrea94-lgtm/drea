@@ -14,6 +14,9 @@
 
   <link rel="preload" href="https://unpkg.com/react@18/umd/react.production.min.js" as="script" crossorigin />
   <link rel="preload" href="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" as="script" crossorigin />
+  <link rel="preload" href="https://unpkg.com/@babel/standalone/babel.min.js" as="script" crossorigin />
+  <link rel="preload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js" as="script" crossorigin />
+  <link rel="preload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js" as="script" crossorigin />
 
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -346,6 +349,30 @@
       return streak;
     }
 
+    // Strip HTML tags from user-entered text (security)
+    const sanitize = (str) => typeof str === 'string' ? str.replace(/<[^>]*>/g, '') : '';
+
+    // Debounce hook — delays a value update until input settles
+    function useDebounce(value, delay=260) {
+      const [dv, setDv] = useState(value);
+      useEffect(() => {
+        const t = setTimeout(() => setDv(value), delay);
+        return () => clearTimeout(t);
+      }, [value, delay]);
+      return dv;
+    }
+
+    // Online status — listens to Firebase .info/connected
+    function useOnlineStatus() {
+      const [online, setOnline] = useState(true);
+      useEffect(() => {
+        const ref = db.ref('.info/connected');
+        ref.on('value', snap => setOnline(!!snap.val()));
+        return () => ref.off('value');
+      }, []);
+      return online;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // AI Coach — context builder
     // ─────────────────────────────────────────────────────────────────────────
@@ -452,7 +479,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const valid = exercises
         .filter(ex => ex.name.trim())
         .map(ex => ({
-          name: ex.name.trim(),
+          name: sanitize(ex.name.trim()).substring(0, 100),
           sets: ex.sets
             .filter(s => (parseFloat(s.weight)||0) > 0 && (parseInt(s.reps)||0) > 0)
             .map(s => ({ weight: parseFloat(s.weight), reps: parseInt(s.reps) })),
@@ -477,7 +504,8 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       // Persist workout
       await fbSet(`drea/workouts/${key}`, {
         exercises: exObj, totalVolume, duration,
-        notes: notes.trim(), split: split.id, timestamp: Date.now(),
+        notes: sanitize(notes.trim()).substring(0, 500),
+        split: split.id, timestamp: Date.now(),
       });
 
       // Stats
@@ -734,6 +762,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
               </span>
             </div>
             <button onClick={onDismiss}
+              aria-label="Dismiss PR banner"
               style={{ background:'none', border:'none', cursor:'pointer', color:'#8A8680', padding:4 }}>
               <IconX size={14} color="currentColor"/>
             </button>
@@ -994,6 +1023,27 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // OfflineBanner — shown when Firebase connection is lost
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function OfflineBanner() {
+      return (
+        <div className="fade-in" style={{
+          position:'fixed',top:0,left:'50%',transform:'translateX(-50%)',
+          width:'100%',maxWidth:480,zIndex:80,
+          background:'rgba(196,112,112,0.15)',backdropFilter:'blur(8px)',
+          borderBottom:'1px solid rgba(196,112,112,0.3)',
+          padding:'8px 16px',display:'flex',alignItems:'center',gap:8,
+        }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#C47070" strokeWidth="2" strokeLinecap="round">
+            <path d="M1 1l22 22M16.72 11.06A10.94 10.94 0 0 1 19 12.55M5 12.55a10.94 10.94 0 0 1 5.17-2.39M10.71 5.05A16 16 0 0 1 22.56 9M1.42 9a15.91 15.91 0 0 1 4.7-2.88M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>
+          </svg>
+          <span style={{fontSize:12,color:'#C47070',fontWeight:500}}>Offline — changes will sync when reconnected</span>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Seeding screen
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -1199,7 +1249,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     // Active workout logger
     // ─────────────────────────────────────────────────────────────────────────
 
-    function SetRow({ setNum, set, onChange, onRemove, autoFocusWeight }) {
+    function SetRow({ setNum, set, onChange, onRemove, autoFocusWeight, isFlashing }) {
       const weightRef = useRef(null);
       useEffect(() => {
         if (autoFocusWeight && weightRef.current) { weightRef.current.focus(); weightRef.current.select(); }
@@ -1211,21 +1261,29 @@ Be encouraging, specific, and practical. Don't pad responses.`;
         fontVariantNumeric:'tabular-nums',transition:'border-color 0.15s',
       };
       return (
-        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-          <span style={{color:'#4A4744',fontSize:12,fontWeight:500,width:22,textAlign:'right',flexShrink:0}}>{setNum}</span>
+        <div style={{
+          display:'flex',alignItems:'center',gap:8,marginBottom:6,
+          borderRadius:8,padding:'2px 0',
+          transition:'background 0.3s',
+          background: isFlashing ? 'rgba(122,158,126,0.1)' : 'transparent',
+        }}>
+          <span style={{color: isFlashing ? '#7A9E7E' : '#4A4744',fontSize:12,fontWeight:500,width:22,textAlign:'right',flexShrink:0,transition:'color 0.3s'}}>{setNum}</span>
           <input ref={weightRef} type="number" inputMode="decimal" step="2.5" min="0"
+            aria-label={`Set ${setNum} weight`}
             value={set.weight} placeholder="0" onChange={e=>onChange('weight',e.target.value)}
             onFocus={e=>{e.target.select();e.target.style.borderColor='#D4A574';}}
             onBlur={e=>e.target.style.borderColor='#2e2e2e'}
-            style={{...inputBase,width:72}}/>
+            style={{...inputBase,width:72,borderColor: isFlashing ? 'rgba(122,158,126,0.5)' : '#2e2e2e'}}/>
           <span style={{color:'#4A4744',fontSize:14,fontWeight:500,flexShrink:0}}>×</span>
           <input type="number" inputMode="numeric" min="0"
+            aria-label={`Set ${setNum} reps`}
             value={set.reps} placeholder="0" onChange={e=>onChange('reps',e.target.value)}
             onFocus={e=>{e.target.select();e.target.style.borderColor='#D4A574';}}
             onBlur={e=>e.target.style.borderColor='#2e2e2e'}
-            style={{...inputBase,width:58}}/>
+            style={{...inputBase,width:58,borderColor: isFlashing ? 'rgba(122,158,126,0.5)' : '#2e2e2e'}}/>
           <span style={{color:'#4A4744',fontSize:11,flexShrink:0}}>reps</span>
           <button onClick={onRemove}
+            aria-label={`Remove set ${setNum}`}
             style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',
               color:'#3a3a3a',padding:8,display:'flex',alignItems:'center',flexShrink:0,
               borderRadius:6,transition:'color 0.15s'}}
@@ -1278,20 +1336,29 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     }
 
     function ExerciseBlock({ exercise, onUpdate, onRemove, onSetComplete, exerciseNames, lastWeightMap, lastSessionMap }) {
-      const [newSetId, setNewSetId] = useState(null);
+      const [newSetId, setNewSetId]     = useState(null);
+      const [flashSetId, setFlashSetId] = useState(null);
+      const flashTimer                  = useRef(null);
       const exVolume = useMemo(() =>
         exercise.sets.reduce((sum,s)=>sum+(parseFloat(s.weight)||0)*(parseInt(s.reps)||0),0),
         [exercise.sets]);
 
       const handleSetChange = (setId, field, val) => {
         const updated = exercise.sets.map(s => s.id===setId ? {...s,[field]:val} : s);
-        // Auto-trigger rest timer when reps field is filled (typically last)
         if (field==='reps') {
           const s = updated.find(x=>x.id===setId);
-          if (parseInt(val)>0 && parseFloat(s.weight)>0) onSetComplete && onSetComplete(exercise.id);
+          if (parseInt(val)>0 && parseFloat(s.weight)>0) {
+            onSetComplete && onSetComplete(exercise.id);
+            // Brief green flash on completed set row
+            clearTimeout(flashTimer.current);
+            setFlashSetId(setId);
+            flashTimer.current = setTimeout(() => setFlashSetId(null), 700);
+          }
         }
         onUpdate({...exercise, sets:updated});
       };
+
+      useEffect(() => () => clearTimeout(flashTimer.current), []);
 
       const handleAddSet = () => {
         const last = exercise.sets[exercise.sets.length-1];
@@ -1308,6 +1375,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                 exerciseNames={exerciseNames} placeholder="Exercise name..."/>
             </div>
             <button onClick={onRemove}
+              aria-label={`Remove ${exercise.name || 'exercise'}`}
               style={{background:'#242424',border:'1px solid #2e2e2e',borderRadius:9,
                 color:'#8A8680',cursor:'pointer',padding:'0 10px',display:'flex',
                 alignItems:'center',flexShrink:0,transition:'color 0.15s'}}
@@ -1334,6 +1402,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
               onChange={(f,v)=>handleSetChange(set.id,f,v)}
               onRemove={()=>{ if(exercise.sets.length>1) onUpdate({...exercise,sets:exercise.sets.filter(s=>s.id!==set.id)}); }}
               autoFocusWeight={set.id===newSetId}
+              isFlashing={set.id===flashSetId}
             />
           ))}
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
@@ -1419,8 +1488,10 @@ Be encouraging, specific, and practical. Don't pad responses.`;
               <IconPlus size={14} color="currentColor"/>Add Exercise
             </button>
             <div style={{marginBottom:16}}>
-              <textarea value={notes} onChange={e=>setNotes(e.target.value.slice(0,500))}
+              <textarea id="workout-notes" name="workoutNotes"
+                value={notes} onChange={e=>setNotes(e.target.value.slice(0,500))}
                 placeholder="Notes (optional)..." maxLength={500} rows={2}
+                aria-label="Workout notes"
                 style={{width:'100%',background:'#1a1a1a',border:'1px solid #262626',
                   borderRadius:12,padding:'12px 14px',color:'#F0EDE8',fontSize:14,
                   resize:'none',outline:'none',fontFamily:'inherit',lineHeight:1.5,transition:'border-color 0.15s'}}
@@ -1510,22 +1581,34 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       );
     }
 
-    function TodayHome({ onOpenPicker }) {
+    function TodayHome({ onOpenPicker, isFirstTime }) {
       return (
         <div className="fade-in" style={{padding:'28px 20px 0'}}>
           <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:18,padding:'28px 24px',textAlign:'center'}}>
             <div style={{marginBottom:16,display:'flex',justifyContent:'center'}}>
               <IconDumbbell size={40} color="#D4A574"/>
             </div>
-            <h3 style={{fontSize:20,fontWeight:700,color:'#F0EDE8',marginBottom:8}}>Ready to lift?</h3>
-            <p style={{fontSize:14,color:'#8A8680',marginBottom:24,lineHeight:1.5}}>
-              Track your exercises, sets, and reps.
-            </p>
+            {isFirstTime ? (
+              <>
+                <h3 style={{fontSize:20,fontWeight:700,color:'#F0EDE8',marginBottom:8}}>Hey Andrea</h3>
+                <p style={{fontSize:14,color:'#8A8680',marginBottom:24,lineHeight:1.6}}>
+                  Welcome to Drea — your personal training companion.<br/>
+                  Log your first workout to get started.
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 style={{fontSize:20,fontWeight:700,color:'#F0EDE8',marginBottom:8}}>Ready to lift?</h3>
+                <p style={{fontSize:14,color:'#8A8680',marginBottom:24,lineHeight:1.5}}>
+                  Track your exercises, sets, and reps.
+                </p>
+              </>
+            )}
             <button onClick={()=>{navigator.vibrate&&navigator.vibrate(20);onOpenPicker();}}
               className="press-scale"
               style={{width:'100%',padding:'14px 20px',borderRadius:12,border:'none',
                 background:'#D4A574',color:'#0f0f0f',fontSize:15,fontWeight:700,cursor:'pointer'}}>
-              Start Workout
+              {isFirstTime ? 'Log First Workout' : 'Start Workout'}
             </button>
           </div>
         </div>
@@ -1538,7 +1621,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
 
     function TodayTab({ exerciseNames, workoutsData, activeWorkout, lastWeightMap, lastSessionMap,
                         onStartWorkout, onCancelWorkout, onFinishWorkout,
-                        todayWorkout, newPRs, onDismissPRs }) {
+                        todayWorkout, newPRs, onDismissPRs, isFirstTime }) {
       const [step, setStep]           = useState('home');
       const [selSplit, setSelSplit]    = useState(null);
       const [pickerEx, setPickerEx]   = useState([]);
@@ -1579,7 +1662,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
             ? <TodaySummary workoutKey={todayKey()} workout={todayWorkout}
                 newPRs={newPRs} onDismissPRs={onDismissPRs}
                 onLogAnother={()=>setStep('pick_split')}/>
-            : <TodayHome onOpenPicker={()=>setStep('pick_split')}/>
+            : <TodayHome onOpenPicker={()=>setStep('pick_split')} isFirstTime={isFirstTime}/>
           }
         </div>
       );
@@ -1871,8 +1954,10 @@ Be encouraging, specific, and practical. Don't pad responses.`;
           <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,
             padding:'14px 16px',marginBottom:14}}>
             <div style={{display:'flex',gap:8,alignItems:'center'}}>
-              <input type="number" inputMode="decimal" value={inputVal}
+              <input id="body-weight-input" name="bodyWeight"
+                type="number" inputMode="decimal" value={inputVal}
                 onChange={e => setInputVal(e.target.value)} placeholder="0.0"
+                aria-label="Body weight value"
                 style={inputStyle}
                 onFocus={e => e.target.style.borderColor='#D4A574'}
                 onBlur={e => e.target.style.borderColor='#2e2e2e'}
@@ -1952,6 +2037,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                     {new Date(e.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
                   </span>
                   <button onClick={() => fbRemove(`drea/bodyWeights/${e.key}`)}
+                    aria-label={`Delete ${e.weight} lbs entry from ${e.date}`}
                     style={{background:'none',border:'none',cursor:'pointer',color:'#3a3a3a',
                       padding:'4px 6px',borderRadius:6,display:'flex',alignItems:'center',
                       transition:'color 0.15s'}}
@@ -2045,6 +2131,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const [search, setSearch]           = useState('');
       const [toast, setToast]             = useState(null);
       const toastTimer                    = useRef(null);
+      const debouncedSearch               = useDebounce(search);
 
       const allEntries = useMemo(() => {
         if (!exerciseNamesData) return [];
@@ -2056,9 +2143,9 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const allNamesLower = useMemo(() => new Set(allEntries.map(e => e.name.toLowerCase())), [allEntries]);
 
       const filtered = useMemo(() => {
-        const q = search.trim().toLowerCase();
+        const q = debouncedSearch.trim().toLowerCase();
         return q ? allEntries.filter(e => e.name.toLowerCase().includes(q)) : allEntries;
-      }, [allEntries, search]);
+      }, [allEntries, debouncedSearch]);
 
       const showToast = (msg, type='success') => {
         setToast({ msg, type });
@@ -2067,7 +2154,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       };
 
       const handleSingleAdd = async () => {
-        const name = singleInput.trim();
+        const name = sanitize(singleInput.trim()).substring(0, 100);
         if (!name) return;
         if (allNamesLower.has(name.toLowerCase())) {
           showToast(`"${name}" already exists`, 'warn'); return;
@@ -2142,7 +2229,8 @@ Be encouraging, specific, and practical. Don't pad responses.`;
           {/* Add form */}
           {mode === 'single' ? (
             <div style={{display:'flex',gap:8,marginBottom:14}}>
-              <input type="text" value={singleInput}
+              <input id="exercise-add-input" name="exerciseName"
+                type="text" value={singleInput}
                 onChange={e => setSingleInput(e.target.value)}
                 placeholder="Exercise name..."
                 autoCapitalize="words" autoCorrect="off" spellCheck="false"
@@ -2192,6 +2280,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                   padding:'11px 14px', borderTop: i ? '1px solid #1e1e1e' : undefined}}>
                   <span style={{flex:1,fontSize:13,color:'#F0EDE8',fontWeight:400}}>{name}</span>
                   <button onClick={() => fbRemove(`drea/exerciseNames/${key}`)}
+                    aria-label={`Delete ${name}`}
                     style={{background:'none',border:'none',cursor:'pointer',
                       color:'#3a3a3a',padding:'4px 6px',borderRadius:6,
                       display:'flex',alignItems:'center',transition:'color 0.15s'}}
@@ -2586,6 +2675,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const [activeWorkout, setActiveWorkout] = useState(null);
       const [newPRs, setNewPRs]               = useState([]);
       const [coachOpen, setCoachOpen]         = useState(false);
+      const isOnline                          = useOnlineStatus();
 
       const [exerciseNamesData]    = useFirebase('drea/exerciseNames');
       const [workoutsData]         = useFirebase('drea/workouts');
@@ -2600,6 +2690,8 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const lastWeightMap   = useMemo(() => buildLastWeightMap(workoutsData), [workoutsData]);
       const lastSessionMap  = useMemo(() => buildLastSessionMap(workoutsData), [workoutsData]);
       const todayWorkout    = workoutsData ? workoutsData[todayKey()] : null;
+      // True only when Firebase has loaded and returned no workouts at all
+      const isFirstTime     = workoutsData !== null && Object.keys(workoutsData || {}).length === 0;
 
       useEffect(() => {
         (async () => {
@@ -2637,8 +2729,13 @@ Be encouraging, specific, and practical. Don't pad responses.`;
 
       return (
         <div style={{background:'#0f0f0f',height:'100dvh',display:'flex',flexDirection:'column',alignItems:'center'}}>
+          {!isOnline && <OfflineBanner/>}
           <div style={{width:'100%',maxWidth:480,flex:1,display:'flex',flexDirection:'column',overflow:'hidden',position:'relative'}}>
-            <main role="main" style={{flex:1,overflowY:'auto',paddingBottom:'calc(64px + env(safe-area-inset-bottom, 0px))',height:'100%'}}>
+            <main role="main" style={{
+              flex:1,overflowY:'auto',height:'100%',
+              paddingTop: isOnline ? 0 : 36,
+              paddingBottom:'calc(64px + env(safe-area-inset-bottom, 0px))',
+            }}>
               {activeTab==='today'&&(
                 <TodayTab key="today"
                   exerciseNames={exerciseNames} workoutsData={workoutsData}
@@ -2648,6 +2745,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                   onFinishWorkout={handleFinishWorkout}
                   todayWorkout={todayWorkout}
                   newPRs={newPRs} onDismissPRs={()=>setNewPRs([])}
+                  isFirstTime={isFirstTime}
                 />
               )}
               {activeTab==='history'&&<HistoryTab key="history" workoutsData={workoutsData} personalRecordsData={personalRecordsData}/>}
