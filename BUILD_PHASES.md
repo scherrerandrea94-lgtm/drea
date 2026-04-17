@@ -408,7 +408,7 @@ Build the minimal rest timer for use during active workouts.
 
 ---
 
-## PHASE 5b — Progressive Overload Suggestions ⬜
+## PHASE 5b — Progressive Overload Suggestions ✅
 Build smart suggestions that appear during workout logging.
 
 **Last session data:**

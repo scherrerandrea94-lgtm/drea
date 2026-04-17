@@ -221,6 +221,42 @@
       return map;
     }
 
+    // Last session map: exercise name → { weight, reps } of best set from most recent workout
+    function buildLastSessionMap(workoutsData) {
+      const map = {};
+      if (!workoutsData) return map;
+      Object.keys(workoutsData).sort().reverse().forEach(date => {
+        const w = workoutsData[date];
+        if (!w.exercises) return;
+        Object.values(w.exercises).forEach(ex => {
+          if (!ex.name || map[ex.name] !== undefined || !ex.sets) return;
+          const sets = Object.values(ex.sets)
+            .filter(s => parseFloat(s.weight) > 0 && parseInt(s.reps) > 0);
+          if (!sets.length) return;
+          // Best set = highest weight
+          const best = sets.reduce((b,s) => parseFloat(s.weight) > parseFloat(b.weight) ? s : b);
+          map[ex.name] = { weight: parseFloat(best.weight), reps: parseInt(best.reps) };
+        });
+      });
+      return map;
+    }
+
+    function getOverloadSuggestion(last) {
+      if (!last) return null;
+      const { weight, reps } = last;
+      if (reps >= 10 && weight > 0) {
+        const add = weight < 100 ? 2.5 : 5;
+        return { type:'weight', suggestedWeight: weight+add, suggestedReps: reps,
+                 hint:`Try ${weight+add} lbs — you hit ${reps} reps last time` };
+      }
+      if (reps > 0 && reps < 12) {
+        return { type:'reps', suggestedWeight: weight, suggestedReps: reps+1,
+                 hint:`Try ${reps+1} reps at ${weight} lbs` };
+      }
+      return { type:'match', suggestedWeight: weight, suggestedReps: reps,
+               hint:'Match last session, then push' };
+    }
+
     // Sanitize exercise names for Firebase keys (forbids . # $ / [ ])
     const fbSafeKey = (str) => str.replace(/[.#$/[\]]/g, '_');
 
@@ -1108,7 +1144,47 @@
       );
     }
 
-    function ExerciseBlock({ exercise, onUpdate, onRemove, onSetComplete, exerciseNames, lastWeightMap }) {
+    function OverloadHint({ exerciseName, lastSessionMap, onApply }) {
+      if (!exerciseName.trim()) return null;
+      const last = lastSessionMap[exerciseName];
+      if (!last) {
+        return (
+          <p style={{fontSize:12,color:'#4A4744',fontStyle:'italic',marginBottom:10,paddingLeft:2}}>
+            First time logging this one
+          </p>
+        );
+      }
+      const sugg = getOverloadSuggestion(last);
+      return (
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:10,
+          padding:'7px 10px',background:'rgba(122,158,126,0.07)',
+          border:'1px solid rgba(122,158,126,0.18)',borderRadius:9}}>
+          <div style={{flex:1,minWidth:0,fontSize:11,lineHeight:1.45}}>
+            <span style={{color:'#8A8680'}}>Last: </span>
+            <span className="tabular" style={{color:'#8A8680',fontWeight:500}}>
+              {last.weight} × {last.reps}
+            </span>
+            {sugg.type !== 'match'
+              ? <span style={{color:'#7A9E7E',fontWeight:500}}> — {sugg.hint}</span>
+              : <span style={{color:'#4A4744',fontStyle:'italic'}}> — {sugg.hint}</span>
+            }
+          </div>
+          {sugg.type !== 'match' && (
+            <button onClick={onApply} style={{
+              padding:'4px 10px',borderRadius:7,border:'none',cursor:'pointer',flexShrink:0,
+              background:'rgba(122,158,126,0.18)',color:'#7A9E7E',fontSize:11,fontWeight:600,
+              transition:'all 0.15s',
+            }}
+            onMouseEnter={e=>e.currentTarget.style.background='rgba(122,158,126,0.32)'}
+            onMouseLeave={e=>e.currentTarget.style.background='rgba(122,158,126,0.18)'}>
+              Use this
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    function ExerciseBlock({ exercise, onUpdate, onRemove, onSetComplete, exerciseNames, lastWeightMap, lastSessionMap }) {
       const [newSetId, setNewSetId] = useState(null);
       const exVolume = useMemo(() =>
         exercise.sets.reduce((sum,s)=>sum+(parseFloat(s.weight)||0)*(parseInt(s.reps)||0),0),
@@ -1132,7 +1208,7 @@
       };
       return (
         <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,padding:'14px 14px 12px',marginBottom:12}}>
-          <div style={{display:'flex',gap:8,marginBottom:12}}>
+          <div style={{display:'flex',gap:8,marginBottom:8}}>
             <div style={{flex:1}}>
               <ExerciseInput value={exercise.name}
                 onChange={name=>onUpdate({...exercise,name})}
@@ -1147,6 +1223,19 @@
               <IconX size={14} color="currentColor"/>
             </button>
           </div>
+          {lastSessionMap && (
+            <OverloadHint
+              exerciseName={exercise.name}
+              lastSessionMap={lastSessionMap}
+              onApply={() => {
+                const sugg = getOverloadSuggestion(lastSessionMap[exercise.name]);
+                if (!sugg) return;
+                onUpdate({...exercise, sets: exercise.sets.map((s,i) =>
+                  i===0 ? {...s, weight:String(sugg.suggestedWeight), reps:String(sugg.suggestedReps)} : s
+                )});
+              }}
+            />
+          )}
           {exercise.sets.map((set,i)=>(
             <SetRow key={set.id} setNum={i+1} set={set}
               onChange={(f,v)=>handleSetChange(set.id,f,v)}
@@ -1170,7 +1259,7 @@
       );
     }
 
-    function ActiveWorkoutLogger({ activeWorkout, lastWeightMap, exerciseNames, onCancel, onFinish }) {
+    function ActiveWorkoutLogger({ activeWorkout, lastWeightMap, lastSessionMap, exerciseNames, onCancel, onFinish }) {
       const [exercises, setExercises]       = useState(activeWorkout.exercises);
       const [notes, setNotes]               = useState('');
       const [saving, setSaving]             = useState(false);
@@ -1213,7 +1302,8 @@
                   onUpdate={upd=>setExercises(p=>p.map(e=>e.id===upd.id?upd:e))}
                   onRemove={()=>setExercises(p=>p.length>1?p.filter(e=>e.id!==ex.id):p)}
                   onSetComplete={handleSetComplete}
-                  exerciseNames={exerciseNames} lastWeightMap={lastWeightMap}/>
+                  exerciseNames={exerciseNames} lastWeightMap={lastWeightMap}
+                  lastSessionMap={lastSessionMap}/>
                 {timerVisible && timerAnchorId===ex.id && (
                   <RestTimer
                     timeLeft={timeLeft} isResting={isResting} done={done}
@@ -1307,7 +1397,7 @@
     // TodayTab — state machine
     // ─────────────────────────────────────────────────────────────────────────
 
-    function TodayTab({ exerciseNames, workoutsData, activeWorkout, lastWeightMap,
+    function TodayTab({ exerciseNames, workoutsData, activeWorkout, lastWeightMap, lastSessionMap,
                         onStartWorkout, onCancelWorkout, onFinishWorkout,
                         todayWorkout, newPRs, onDismissPRs }) {
       const [step, setStep]           = useState('home');
@@ -1317,7 +1407,8 @@
 
       if (activeWorkout) {
         return <ActiveWorkoutLogger activeWorkout={activeWorkout} lastWeightMap={lastWeightMap}
-          exerciseNames={exerciseNames} onCancel={onCancelWorkout} onFinish={onFinishWorkout}/>;
+          lastSessionMap={lastSessionMap} exerciseNames={exerciseNames}
+          onCancel={onCancelWorkout} onFinish={onFinishWorkout}/>;
       }
 
       const handleSelectSplit = (split) => {
@@ -2066,8 +2157,9 @@
         return [...new Set(Object.values(exerciseNamesData))].sort();
       }, [exerciseNamesData]);
 
-      const lastWeightMap = useMemo(() => buildLastWeightMap(workoutsData), [workoutsData]);
-      const todayWorkout  = workoutsData ? workoutsData[todayKey()] : null;
+      const lastWeightMap   = useMemo(() => buildLastWeightMap(workoutsData), [workoutsData]);
+      const lastSessionMap  = useMemo(() => buildLastSessionMap(workoutsData), [workoutsData]);
+      const todayWorkout    = workoutsData ? workoutsData[todayKey()] : null;
 
       useEffect(() => {
         (async () => {
@@ -2110,7 +2202,7 @@
               {activeTab==='today'&&(
                 <TodayTab key="today"
                   exerciseNames={exerciseNames} workoutsData={workoutsData}
-                  activeWorkout={activeWorkout} lastWeightMap={lastWeightMap}
+                  activeWorkout={activeWorkout} lastWeightMap={lastWeightMap} lastSessionMap={lastSessionMap}
                   onStartWorkout={handleStartWorkout}
                   onCancelWorkout={handleCancelWorkout}
                   onFinishWorkout={handleFinishWorkout}
