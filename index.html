@@ -1363,6 +1363,226 @@
       );
     }
     // ─────────────────────────────────────────────────────────────────────────
+    // BodyWeightChart — SVG trend line for body weight
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function BodyWeightChart({ entries }) {
+      // entries: [{weight, date, ...}] sorted ascending, length >= 2
+      const W=320, H=130, PL=46, PR=16, PT=20, PB=24;
+      const plotW=W-PL-PR, plotH=H-PT-PB;
+      const timestamps = entries.map(e => new Date(e.date+'T12:00:00').getTime());
+      const yVals = entries.map(e => e.weight);
+      const tMin=Math.min(...timestamps), tMax=Math.max(...timestamps);
+      const yMin=Math.min(...yVals), yMax=Math.max(...yVals);
+      const tRange=tMax-tMin||1;
+      const yPad = Math.max(1, (yMax-yMin)*0.2) || 5;
+      const yLow=yMin-yPad, yHigh=yMax+yPad, yRange=yHigh-yLow;
+      const toX = t => PL + ((t-tMin)/tRange)*plotW;
+      const toY = v => PT + ((yHigh-v)/yRange)*plotH;
+      const pts = entries.map((e,i) => ({ x:toX(timestamps[i]), y:toY(e.weight), ...e }));
+      const linePath = pts.map((p,i) => `${i?'L':'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      const areaPath = linePath
+        + ` L${pts[pts.length-1].x.toFixed(1)},${(PT+plotH).toFixed(1)}`
+        + ` L${PL},${(PT+plotH).toFixed(1)} Z`;
+      const yGridVals = [0.33,0.66].map(f => (yLow+f*yRange).toFixed(1)*1);
+      const last = pts[pts.length-1];
+      const labelRight = last.x > W*0.7;
+      const dateShort = key => new Date(key+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:'block'}}>
+          {yGridVals.map((v,i) => {
+            const gy = toY(v);
+            return (
+              <g key={i}>
+                <line x1={PL} y1={gy.toFixed(1)} x2={W-PR} y2={gy.toFixed(1)} stroke="#262626" strokeWidth="1"/>
+                <text x={PL-6} y={(gy+3.5).toFixed(1)} textAnchor="end" fill="#4A4744" fontSize="9" fontFamily="-apple-system,sans-serif">{Math.round(v)}</text>
+              </g>
+            );
+          })}
+          <path d={areaPath} fill="rgba(212,165,116,0.06)"/>
+          <path d={linePath} fill="none" stroke="#D4A574" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          {pts.map((p,i) => <circle key={i} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="3" fill="#D4A574"/>)}
+          {/* Latest weight label */}
+          <text x={(last.x + (labelRight?-6:6)).toFixed(1)} y={(last.y-8).toFixed(1)}
+            textAnchor={labelRight?'end':'start'} fill="#D4A574" fontSize="10" fontWeight="600"
+            fontFamily="-apple-system,sans-serif">{last.weight} lbs</text>
+          {/* X-axis: first and last date */}
+          <text x={PL} y={H-4} textAnchor="start" fill="#4A4744" fontSize="9" fontFamily="-apple-system,sans-serif">{dateShort(pts[0].date)}</text>
+          <text x={W-PR} y={H-4} textAnchor="end" fill="#4A4744" fontSize="9" fontFamily="-apple-system,sans-serif">{dateShort(last.date)}</text>
+        </svg>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BodyWeightTracker — log form, stats, chart, recent entries
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function BodyWeightTracker() {
+      const [bwData, bwLoading] = useFirebase('drea/bodyWeights');
+      const [inputVal, setInputVal] = useState('');
+      const [unit, setUnit]         = useState('lbs');
+      const [saving, setSaving]     = useState(false);
+      const [saved, setSaved]       = useState(false);
+      const savedTimer              = useRef(null);
+
+      // Sorted newest first
+      const entries = useMemo(() => {
+        if (!bwData) return [];
+        return Object.entries(bwData)
+          .map(([key, v]) => ({ key, ...v }))
+          .sort((a,b) => b.timestamp - a.timestamp);
+      }, [bwData]);
+
+      const entriesAsc = useMemo(() => [...entries].reverse(), [entries]);
+
+      // Stats
+      const current = entries[0]?.weight ?? null;
+      const sevenAgo = Date.now() - 7*24*60*60*1000;
+      const avg7 = useMemo(() => {
+        const r = entries.filter(e => e.timestamp >= sevenAgo);
+        return r.length ? r.reduce((s,e) => s+e.weight, 0) / r.length : null;
+      }, [entries]);
+      const totalChange = entries.length >= 2
+        ? +(entries[0].weight - entries[entries.length-1].weight).toFixed(1)
+        : null;
+
+      const handleLog = async () => {
+        const raw = parseFloat(inputVal);
+        if (isNaN(raw) || !inputVal.trim()) return;
+        const minRaw = unit==='kg'?22:50, maxRaw = unit==='kg'?227:500;
+        if (raw < minRaw || raw > maxRaw) {
+          alert(`Please enter a weight between ${minRaw} and ${maxRaw} ${unit}.`);
+          return;
+        }
+        const weightLbs = unit==='kg' ? Math.round(raw*2.20462*10)/10 : raw;
+        setSaving(true);
+        try {
+          const now = Date.now();
+          await fbPush('drea/bodyWeights', { weight: weightLbs, unit:'lbs', date:todayKey(), timestamp:now });
+          setInputVal('');
+          navigator.vibrate && navigator.vibrate(20);
+          setSaved(true);
+          clearTimeout(savedTimer.current);
+          savedTimer.current = setTimeout(() => setSaved(false), 2200);
+        } finally { setSaving(false); }
+      };
+
+      const inputStyle = {
+        flex:1, background:'#242424', border:'1px solid #2e2e2e', borderRadius:10,
+        padding:'11px 14px', color:'#F0EDE8', fontSize:16, fontWeight:600, outline:'none',
+        fontVariantNumeric:'tabular-nums', transition:'border-color 0.15s',
+      };
+
+      return (
+        <div>
+          {/* Log form */}
+          <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,
+            padding:'14px 16px',marginBottom:14}}>
+            <div style={{display:'flex',gap:8,alignItems:'center'}}>
+              <input type="number" inputMode="decimal" value={inputVal}
+                onChange={e => setInputVal(e.target.value)} placeholder="0.0"
+                style={inputStyle}
+                onFocus={e => e.target.style.borderColor='#D4A574'}
+                onBlur={e => e.target.style.borderColor='#2e2e2e'}
+                onKeyDown={e => { if (e.key==='Enter') handleLog(); }}
+              />
+              {/* Unit toggle */}
+              <div style={{display:'flex',background:'#242424',border:'1px solid #2e2e2e',
+                borderRadius:9,overflow:'hidden',flexShrink:0}}>
+                {['lbs','kg'].map(u => (
+                  <button key={u} onClick={() => setUnit(u)} style={{
+                    padding:'11px 13px',border:'none',cursor:'pointer',
+                    fontSize:13,fontWeight:600,transition:'all 0.15s',
+                    background: unit===u ? '#D4A574' : 'transparent',
+                    color: unit===u ? '#0f0f0f' : '#8A8680',
+                  }}>{u}</button>
+                ))}
+              </div>
+              <button onClick={handleLog} disabled={saving || !inputVal.trim()} className="press-scale"
+                style={{
+                  padding:'11px 18px',borderRadius:10,border:'none',flexShrink:0,
+                  cursor: inputVal.trim() && !saving ? 'pointer' : 'default',
+                  background: saved ? '#7A9E7E' : inputVal.trim() && !saving ? '#D4A574' : '#2a2a2a',
+                  color: inputVal.trim() && !saving || saved ? '#0f0f0f' : '#4A4744',
+                  fontSize:14,fontWeight:700,transition:'background 0.2s, color 0.2s',
+                }}>
+                {saved ? 'Logged!' : saving ? '...' : 'Log'}
+              </button>
+            </div>
+          </div>
+
+          {/* Stats row */}
+          {entries.length > 0 && (
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8,marginBottom:14}}>
+              {[
+                { label:'Current', value: current !== null ? current.toFixed(1) : '—', unit:'lbs', color:'#D4A574' },
+                { label:'7-Day Avg', value: avg7 !== null ? avg7.toFixed(1) : '—', unit: avg7!==null?'lbs':'', color:'#D4A574' },
+                { label:'Total Change',
+                  value: totalChange !== null ? (totalChange > 0 ? `+${totalChange}` : String(totalChange)) : '—',
+                  unit: totalChange !== null ? 'lbs' : '',
+                  color: totalChange === null ? '#D4A574' : totalChange > 0 ? '#C08B8B' : '#7A9E7E',
+                },
+              ].map(stat => (
+                <div key={stat.label} style={{background:'#1a1a1a',border:'1px solid #262626',
+                  borderRadius:12,padding:'12px 10px',textAlign:'center'}}>
+                  <div className="tabular" style={{fontSize:17,fontWeight:700,
+                    color:stat.color,lineHeight:1,marginBottom:2}}>{stat.value}</div>
+                  {stat.unit && <div style={{fontSize:10,color:'#4A4744',marginBottom:4}}>{stat.unit}</div>}
+                  <div style={{fontSize:11,color:'#8A8680',marginTop: stat.unit?0:6}}>{stat.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Trend chart */}
+          {entriesAsc.length >= 2 && (
+            <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,
+              padding:'14px 12px 10px',marginBottom:14}}>
+              <BodyWeightChart entries={entriesAsc}/>
+            </div>
+          )}
+
+          {/* Recent entries */}
+          {entries.length > 0 && (
+            <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,
+              overflow:'hidden',marginBottom:4}}>
+              <div style={{padding:'10px 16px',borderBottom:'1px solid #262626'}}>
+                <span style={{fontSize:11,color:'#4A4744',fontWeight:600,
+                  letterSpacing:'0.06em',textTransform:'uppercase'}}>Recent entries</span>
+              </div>
+              {entries.slice(0,10).map((e,i) => (
+                <div key={e.key} style={{display:'flex',alignItems:'center',padding:'10px 16px',
+                  borderTop: i ? '1px solid #1e1e1e' : undefined}}>
+                  <span className="tabular" style={{fontSize:15,fontWeight:600,color:'#F0EDE8',flex:1}}>
+                    {e.weight.toFixed(1)}&thinsp;<span style={{fontSize:12,color:'#8A8680',fontWeight:400}}>lbs</span>
+                  </span>
+                  <span style={{fontSize:13,color:'#8A8680',marginRight:12}}>
+                    {new Date(e.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+                  </span>
+                  <button onClick={() => fbRemove(`drea/bodyWeights/${e.key}`)}
+                    style={{background:'none',border:'none',cursor:'pointer',color:'#3a3a3a',
+                      padding:'4px 6px',borderRadius:6,display:'flex',alignItems:'center',
+                      transition:'color 0.15s'}}
+                    onMouseEnter={ev => ev.currentTarget.style.color='#C47070'}
+                    onMouseLeave={ev => ev.currentTarget.style.color='#3a3a3a'}>
+                    <IconX size={13} color="currentColor"/>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!bwLoading && entries.length === 0 && (
+            <div style={{textAlign:'center',padding:'20px 0 8px',color:'#4A4744',fontSize:13}}>
+              Start tracking to see your trend.
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // PRBoard — personal records list (reused in History > PRs and You tab)
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -1423,14 +1643,21 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // You tab — personal records + future sections
+    // You tab — body weight + personal records
     // ─────────────────────────────────────────────────────────────────────────
 
     function YouTab({ personalRecordsData }) {
       const prCount = personalRecordsData ? Object.values(personalRecordsData).filter(p=>p&&p.name).length : 0;
       return (
         <div className="fade-in" style={{padding:'20px 20px 8px'}}>
-          <h2 style={{fontSize:22,fontWeight:700,color:'#F0EDE8',marginBottom:20}}>You</h2>
+          <h2 style={{fontSize:22,fontWeight:700,color:'#F0EDE8',marginBottom:24}}>You</h2>
+
+          {/* Body Weight */}
+          <div style={{marginBottom:32}}>
+            <h3 style={{fontSize:12,fontWeight:600,color:'#8A8680',letterSpacing:'0.07em',
+              textTransform:'uppercase',marginBottom:14}}>Body Weight</h3>
+            <BodyWeightTracker/>
+          </div>
 
           {/* Personal Records */}
           <div>

@@ -313,7 +313,7 @@ Build the PR board on the History tab (sub-tab) and the You tab.
 
 ---
 
-## PHASE 4a — Body Weight Tracker ⬜
+## PHASE 4a — Body Weight Tracker ✅
 Build body weight tracking on the You tab.
 
 **Log weight form:**
