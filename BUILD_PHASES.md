@@ -349,7 +349,7 @@ Build body weight tracking on the You tab.
 
 ---
 
-## PHASE 4b — Exercise Manager ⬜
+## PHASE 4b — Exercise Manager ✅
 Build the exercise database manager on the You tab.
 
 **Exercise Manager section:**

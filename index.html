@@ -1643,32 +1643,212 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // ExerciseManager — add / search / delete exercises in drea/exerciseNames
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function ExerciseManager({ exerciseNamesData }) {
+      const [mode, setMode]         = useState('single');
+      const [singleInput, setSingleInput] = useState('');
+      const [bulkInput, setBulkInput]     = useState('');
+      const [search, setSearch]           = useState('');
+      const [toast, setToast]             = useState(null);
+      const toastTimer                    = useRef(null);
+
+      const allEntries = useMemo(() => {
+        if (!exerciseNamesData) return [];
+        return Object.entries(exerciseNamesData)
+          .map(([key, name]) => ({ key, name }))
+          .sort((a,b) => a.name.localeCompare(b.name));
+      }, [exerciseNamesData]);
+
+      const allNamesLower = useMemo(() => new Set(allEntries.map(e => e.name.toLowerCase())), [allEntries]);
+
+      const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        return q ? allEntries.filter(e => e.name.toLowerCase().includes(q)) : allEntries;
+      }, [allEntries, search]);
+
+      const showToast = (msg, type='success') => {
+        setToast({ msg, type });
+        clearTimeout(toastTimer.current);
+        toastTimer.current = setTimeout(() => setToast(null), 2600);
+      };
+
+      const handleSingleAdd = async () => {
+        const name = singleInput.trim();
+        if (!name) return;
+        if (allNamesLower.has(name.toLowerCase())) {
+          showToast(`"${name}" already exists`, 'warn'); return;
+        }
+        await fbPush('drea/exerciseNames', name);
+        setSingleInput('');
+        showToast(`Added "${name}"`);
+        navigator.vibrate && navigator.vibrate(15);
+      };
+
+      const handleBulkAdd = async () => {
+        const lines = bulkInput.split('\n').map(l => l.trim()).filter(Boolean);
+        if (!lines.length) return;
+        const toAdd = lines.filter(n => !allNamesLower.has(n.toLowerCase()));
+        const dupeCount = lines.length - toAdd.length;
+        if (!toAdd.length) {
+          showToast(`All ${dupeCount} already exist`, 'warn'); return;
+        }
+        const upd = {};
+        toAdd.forEach(name => { upd[db.ref('drea/exerciseNames').push().key] = name; });
+        await db.ref('drea/exerciseNames').update(upd);
+        setBulkInput('');
+        showToast(`Added ${toAdd.length}${dupeCount ? ` · ${dupeCount} already existed` : ''}`);
+        navigator.vibrate && navigator.vibrate(15);
+      };
+
+      const inputBase = {
+        width:'100%', background:'#242424', border:'1px solid #2e2e2e', borderRadius:10,
+        padding:'11px 14px', color:'#F0EDE8', fontSize:14, outline:'none',
+        fontFamily:'inherit', transition:'border-color 0.15s',
+      };
+      const addBtnBase = (active) => ({
+        padding:'11px 18px', borderRadius:10, border:'none', flexShrink:0,
+        background: active ? '#D4A574' : '#2a2a2a',
+        color: active ? '#0f0f0f' : '#4A4744',
+        fontSize:14, fontWeight:700, cursor: active ? 'pointer' : 'default',
+        transition:'all 0.2s',
+      });
+
+      return (
+        <div>
+          {/* Section header */}
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+            <h3 style={{fontSize:12,fontWeight:600,color:'#8A8680',
+              letterSpacing:'0.07em',textTransform:'uppercase'}}>
+              Exercises {exerciseNamesData ? `(${allEntries.length})` : ''}
+            </h3>
+            {/* Mode toggle */}
+            <div style={{display:'flex',background:'#1e1e1e',border:'1px solid #2a2a2a',
+              borderRadius:9,overflow:'hidden'}}>
+              {['single','bulk'].map(m => (
+                <button key={m} onClick={() => setMode(m)} style={{
+                  padding:'6px 14px', border:'none', cursor:'pointer',
+                  fontSize:12, fontWeight:600, transition:'all 0.15s',
+                  background: mode===m ? 'rgba(212,165,116,0.2)' : 'transparent',
+                  color: mode===m ? '#D4A574' : '#4A4744',
+                }}>{m==='single'?'Single':'Bulk'}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Toast */}
+          {toast && (
+            <div className="fade-in" style={{
+              padding:'10px 14px', borderRadius:10, marginBottom:12, fontSize:13,
+              background: toast.type==='warn' ? 'rgba(196,112,112,0.15)' : 'rgba(122,158,126,0.15)',
+              border: `1px solid ${toast.type==='warn' ? 'rgba(196,112,112,0.35)' : 'rgba(122,158,126,0.35)'}`,
+              color: toast.type==='warn' ? '#C47070' : '#7A9E7E',
+            }}>{toast.msg}</div>
+          )}
+
+          {/* Add form */}
+          {mode === 'single' ? (
+            <div style={{display:'flex',gap:8,marginBottom:14}}>
+              <input type="text" value={singleInput}
+                onChange={e => setSingleInput(e.target.value)}
+                placeholder="Exercise name..."
+                autoCapitalize="words" autoCorrect="off" spellCheck="false"
+                onKeyDown={e => { if (e.key==='Enter') handleSingleAdd(); }}
+                style={inputBase}
+                onFocus={e => e.target.style.borderColor='#D4A574'}
+                onBlur={e => e.target.style.borderColor='#2e2e2e'}
+              />
+              <button onClick={handleSingleAdd} disabled={!singleInput.trim()} className="press-scale"
+                style={addBtnBase(!!singleInput.trim())}>Add</button>
+            </div>
+          ) : (
+            <div style={{marginBottom:14}}>
+              <textarea value={bulkInput} onChange={e => setBulkInput(e.target.value)}
+                placeholder={"Paste exercise names,\none per line..."}
+                rows={4}
+                style={{...inputBase, resize:'none', lineHeight:1.6, marginBottom:8}}
+                onFocus={e => e.target.style.borderColor='#D4A574'}
+                onBlur={e => e.target.style.borderColor='#2e2e2e'}
+              />
+              <button onClick={handleBulkAdd} disabled={!bulkInput.trim()} className="press-scale"
+                style={{...addBtnBase(!!bulkInput.trim()), width:'100%', padding:'12px 0'}}>
+                Add All
+              </button>
+            </div>
+          )}
+
+          {/* Search */}
+          <div style={{marginBottom:10}}>
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search exercises..." autoCapitalize="off" autoCorrect="off"
+              style={{...inputBase}}
+              onFocus={e => e.target.style.borderColor='#3a3a3a'}
+              onBlur={e => e.target.style.borderColor='#2e2e2e'}
+            />
+          </div>
+
+          {/* Exercise list */}
+          {filtered.length === 0 ? (
+            <div style={{textAlign:'center',padding:'24px 0',color:'#4A4744',fontSize:13}}>
+              {search ? `No matches for "${search}"` : 'No exercises yet.'}
+            </div>
+          ) : (
+            <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,overflow:'hidden'}}>
+              {filtered.map(({key, name}, i) => (
+                <div key={key} style={{display:'flex',alignItems:'center',
+                  padding:'11px 14px', borderTop: i ? '1px solid #1e1e1e' : undefined}}>
+                  <span style={{flex:1,fontSize:13,color:'#F0EDE8',fontWeight:400}}>{name}</span>
+                  <button onClick={() => fbRemove(`drea/exerciseNames/${key}`)}
+                    style={{background:'none',border:'none',cursor:'pointer',
+                      color:'#3a3a3a',padding:'4px 6px',borderRadius:6,
+                      display:'flex',alignItems:'center',transition:'color 0.15s'}}
+                    onMouseEnter={ev => ev.currentTarget.style.color='#C47070'}
+                    onMouseLeave={ev => ev.currentTarget.style.color='#3a3a3a'}>
+                    <IconX size={13} color="currentColor"/>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // You tab — body weight + personal records
     // ─────────────────────────────────────────────────────────────────────────
 
-    function YouTab({ personalRecordsData }) {
+    function YouTab({ personalRecordsData, exerciseNamesData }) {
       const prCount = personalRecordsData ? Object.values(personalRecordsData).filter(p=>p&&p.name).length : 0;
+      const sectionHead = {
+        fontSize:12, fontWeight:600, color:'#8A8680',
+        letterSpacing:'0.07em', textTransform:'uppercase',
+      };
       return (
         <div className="fade-in" style={{padding:'20px 20px 8px'}}>
           <h2 style={{fontSize:22,fontWeight:700,color:'#F0EDE8',marginBottom:24}}>You</h2>
 
           {/* Body Weight */}
           <div style={{marginBottom:32}}>
-            <h3 style={{fontSize:12,fontWeight:600,color:'#8A8680',letterSpacing:'0.07em',
-              textTransform:'uppercase',marginBottom:14}}>Body Weight</h3>
+            <h3 style={{...sectionHead, marginBottom:14}}>Body Weight</h3>
             <BodyWeightTracker/>
           </div>
 
           {/* Personal Records */}
-          <div>
+          <div style={{marginBottom:32}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-              <h3 style={{fontSize:12,fontWeight:600,color:'#8A8680',
-                letterSpacing:'0.07em',textTransform:'uppercase'}}>Personal Records</h3>
+              <h3 style={sectionHead}>Personal Records</h3>
               {prCount > 0 && (
                 <span style={{fontSize:12,color:'#4A4744'}}>{prCount} {prCount===1?'record':'records'}</span>
               )}
             </div>
             <PRBoard personalRecordsData={personalRecordsData}/>
+          </div>
+
+          {/* Exercise Manager */}
+          <div style={{marginBottom:16}}>
+            <ExerciseManager exerciseNamesData={exerciseNamesData}/>
           </div>
         </div>
       );
@@ -1781,7 +1961,7 @@
                 />
               )}
               {activeTab==='history'&&<HistoryTab key="history" workoutsData={workoutsData} personalRecordsData={personalRecordsData}/>}
-              {activeTab==='you'&&<YouTab key="you" personalRecordsData={personalRecordsData}/>}
+              {activeTab==='you'&&<YouTab key="you" personalRecordsData={personalRecordsData} exerciseNamesData={exerciseNamesData}/>}
             </main>
             <BottomNav activeTab={activeTab} onTabPress={handleTabPress}/>
           </div>
