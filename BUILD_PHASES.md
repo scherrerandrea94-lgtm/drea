@@ -430,7 +430,7 @@ Build smart suggestions that appear during workout logging.
 
 ---
 
-## PHASE 5c — Weekly Summary Stats ⬜
+## PHASE 5c — Weekly Summary Stats ✅
 Build the weekly summary cards on the Today tab.
 
 **Stats cards (horizontal scroll row at top of Today tab):**

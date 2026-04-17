@@ -321,6 +321,26 @@
       return results; // sorted ascending by date
     }
 
+    // Consecutive weeks (ending at current week) that have ≥1 workout
+    function computeStreak(workoutsData) {
+      if (!workoutsData) return 0;
+      const dates = Object.keys(workoutsData);
+      if (!dates.length) return 0;
+      const weekSet = new Set(dates.map(d => getWeekStart(d)));
+      const today = new Date(); today.setHours(12,0,0,0);
+      const cur = new Date(today); cur.setDate(today.getDate() - today.getDay());
+      // Start from current week if it has a workout, otherwise check last week
+      if (!weekSet.has(cur.toISOString().slice(0,10))) {
+        cur.setDate(cur.getDate() - 7);
+      }
+      let streak = 0;
+      while (weekSet.has(cur.toISOString().slice(0,10))) {
+        streak++;
+        cur.setDate(cur.getDate() - 7);
+      }
+      return streak;
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Firebase helpers
     // ─────────────────────────────────────────────────────────────────────────
@@ -1371,6 +1391,52 @@
     // Today home
     // ─────────────────────────────────────────────────────────────────────────
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // WeeklyStatsRow — compact stat cards at top of Today tab
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function WeeklyStatsRow({ workoutsData }) {
+      const { gymDays, weeklyVol, streak } = useMemo(() => {
+        const thisWS = getWeekStart(todayKey());
+        const thisWeek = workoutsData
+          ? Object.entries(workoutsData).filter(([d]) => getWeekStart(d) === thisWS)
+          : [];
+        return {
+          gymDays:   thisWeek.length,
+          weeklyVol: thisWeek.reduce((s,[,w]) => s+(w.totalVolume||0), 0),
+          streak:    computeStreak(workoutsData),
+        };
+      }, [workoutsData]);
+
+      const cards = [
+        { label:'Gym Days',     value: gymDays,                    sub:'this week' },
+        { label:'Volume',       value: weeklyVol.toLocaleString(), sub:'lbs this week' },
+        { label:'Week Streak',  value: streak,                     sub: streak===1?'week':'weeks' },
+      ];
+
+      return (
+        <div style={{display:'flex',gap:8,padding:'16px 20px 0',overflowX:'auto',
+          WebkitOverflowScrolling:'touch'}}>
+          {cards.map(card => (
+            <div key={card.label} style={{
+              background:'#1a1a1a',border:'1px solid #262626',borderRadius:13,
+              padding:'13px 16px',flexShrink:0,minWidth:96,
+            }}>
+              <div className="tabular" style={{fontSize:24,fontWeight:700,color:'#D4A574',lineHeight:1}}>
+                {card.value}
+              </div>
+              <div style={{fontSize:11,color:'#8A8680',marginTop:5,lineHeight:1.3,fontWeight:500}}>
+                {card.label}
+              </div>
+              <div style={{fontSize:10,color:'#4A4744',marginTop:2}}>
+                {card.sub}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     function TodayHome({ onOpenPicker }) {
       return (
         <div className="fade-in" style={{padding:'28px 20px 0'}}>
@@ -1433,13 +1499,17 @@
         );
       }
 
-      if (todayWorkout) {
-        return <TodaySummary workoutKey={todayKey()} workout={todayWorkout}
-          newPRs={newPRs} onDismissPRs={onDismissPRs}
-          onLogAnother={()=>setStep('pick_split')}/>;
-      }
-
-      return <TodayHome onOpenPicker={()=>setStep('pick_split')}/>;
+      return (
+        <div className="fade-in">
+          <WeeklyStatsRow workoutsData={workoutsData}/>
+          {todayWorkout
+            ? <TodaySummary workoutKey={todayKey()} workout={todayWorkout}
+                newPRs={newPRs} onDismissPRs={onDismissPRs}
+                onLogAnother={()=>setStep('pick_split')}/>
+            : <TodayHome onOpenPicker={()=>setStep('pick_split')}/>
+          }
+        </div>
+      );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
