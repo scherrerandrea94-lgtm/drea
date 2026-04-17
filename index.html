@@ -1353,22 +1353,98 @@
               </div>
             )}
 
-            {/* ── PRs sub-tab (Phase 3b) ── */}
+            {/* ── PRs sub-tab ── */}
             {subTab === 'prs' && (
-              <div style={{textAlign:'center',padding:'60px 0'}}>
-                <IconStar size={32} color="#2a2a2a"/>
-                <p style={{fontSize:14,color:'#4A4744',marginTop:12}}>Personal records board<br/>coming in the next update.</p>
-              </div>
+              <PRBoard personalRecordsData={personalRecordsData}/>
             )}
 
           </div>
         </div>
       );
     }
-    function YouTab() {
-      return <div className="fade-in" style={{padding:'28px 20px'}}>
-        <h2 style={{fontSize:22,fontWeight:700,color:'#F0EDE8'}}>You</h2>
-      </div>;
+    // ─────────────────────────────────────────────────────────────────────────
+    // PRBoard — personal records list (reused in History > PRs and You tab)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function PRBoard({ personalRecordsData }) {
+      const prs = personalRecordsData
+        ? Object.values(personalRecordsData)
+            .filter(pr => pr && pr.name)
+            .sort((a,b) => a.name.localeCompare(b.name))
+        : null;
+
+      if (prs === null) {
+        return (
+          <div style={{display:'flex',justifyContent:'center',padding:'40px 0'}}>
+            <svg className="spin" width="22" height="22" viewBox="0 0 24 24" fill="none"
+              stroke="#3a3a3a" strokeWidth="2" strokeLinecap="round">
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+            </svg>
+          </div>
+        );
+      }
+
+      if (prs.length === 0) {
+        return (
+          <div style={{textAlign:'center',padding:'48px 0'}}>
+            <IconStar size={34} color="#2a2a2a"/>
+            <p style={{fontSize:14,fontWeight:600,color:'#4A4744',marginTop:14}}>No personal records yet.</p>
+            <p style={{fontSize:13,color:'#3a3a3a',marginTop:6}}>Hit the gym and set some PRs!</p>
+          </div>
+        );
+      }
+
+      return (
+        <div>
+          {prs.map(pr => (
+            <div key={pr.name} style={{
+              background:'#1a1a1a',
+              border:'1px solid rgba(212,165,116,0.25)',
+              borderRadius:14, padding:'14px 16px', marginBottom:10,
+              display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
+            }}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:'#F0EDE8',
+                  overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{pr.name}</div>
+                <div style={{fontSize:12,color:'#8A8680',marginTop:3}}>{formatDate(pr.date)}</div>
+              </div>
+              <div style={{textAlign:'right',flexShrink:0}}>
+                <div className="tabular" style={{fontSize:16,fontWeight:700,color:'#D4A574',letterSpacing:'-0.01em'}}>
+                  {pr.weight} × {pr.reps}
+                </div>
+                <div className="tabular" style={{fontSize:12,color:'#8A8680',marginTop:2}}>
+                  {pr.est1rm} lbs e1RM
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // You tab — personal records + future sections
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function YouTab({ personalRecordsData }) {
+      const prCount = personalRecordsData ? Object.values(personalRecordsData).filter(p=>p&&p.name).length : 0;
+      return (
+        <div className="fade-in" style={{padding:'20px 20px 8px'}}>
+          <h2 style={{fontSize:22,fontWeight:700,color:'#F0EDE8',marginBottom:20}}>You</h2>
+
+          {/* Personal Records */}
+          <div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+              <h3 style={{fontSize:12,fontWeight:600,color:'#8A8680',
+                letterSpacing:'0.07em',textTransform:'uppercase'}}>Personal Records</h3>
+              {prCount > 0 && (
+                <span style={{fontSize:12,color:'#4A4744'}}>{prCount} {prCount===1?'record':'records'}</span>
+              )}
+            </div>
+            <PRBoard personalRecordsData={personalRecordsData}/>
+          </div>
+        </div>
+      );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -1478,7 +1554,7 @@
                 />
               )}
               {activeTab==='history'&&<HistoryTab key="history" workoutsData={workoutsData} personalRecordsData={personalRecordsData}/>}
-              {activeTab==='you'&&<YouTab key="you"/>}
+              {activeTab==='you'&&<YouTab key="you" personalRecordsData={personalRecordsData}/>}
             </main>
             <BottomNav activeTab={activeTab} onTabPress={handleTabPress}/>
           </div>

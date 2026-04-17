@@ -295,7 +295,7 @@ Build the History tab.
 
 ---
 
-## PHASE 3b — Personal Records Board ⬜
+## PHASE 3b — Personal Records Board ✅
 Build the PR board on the History tab (sub-tab) and the You tab.
 
 **PR Board (accessible from History > PRs sub-tab AND You tab):**
