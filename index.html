@@ -28,16 +28,10 @@
       theme: {
         extend: {
           colors: {
-            'drea-bg':        '#0f0f0f',
-            'drea-card':      '#1a1a1a',
-            'drea-border':    '#262626',
-            'drea-amber':     '#D4A574',
-            'drea-rose':      '#C08B8B',
-            'drea-sage':      '#7A9E7E',
-            'drea-danger':    '#C47070',
-            'drea-primary':   '#F0EDE8',
-            'drea-secondary': '#8A8680',
-            'drea-tertiary':  '#4A4744',
+            'drea-bg':'#0f0f0f','drea-card':'#1a1a1a','drea-border':'#262626',
+            'drea-amber':'#D4A574','drea-rose':'#C08B8B','drea-sage':'#7A9E7E',
+            'drea-danger':'#C47070','drea-primary':'#F0EDE8',
+            'drea-secondary':'#8A8680','drea-tertiary':'#4A4744',
           },
         },
       },
@@ -46,40 +40,36 @@
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     html, body {
-      height: 100%;
-      background: #0f0f0f;
-      color: #F0EDE8;
+      height: 100%; background: #0f0f0f; color: #F0EDE8;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
       overflow: hidden;
     }
-
     ::-webkit-scrollbar { display: none; }
     * { -ms-overflow-style: none; scrollbar-width: none; }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0);   }
-    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
     .fade-in { animation: fadeIn 0.18s ease-out both; }
 
     @keyframes spin { to { transform: rotate(360deg); } }
     .spin { animation: spin 0.8s linear infinite; }
 
-    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
     .pulse { animation: pulse 1.8s ease-in-out infinite; }
 
-    .tabular { font-variant-numeric: tabular-nums; }
+    @keyframes prGlow {
+      0%   { box-shadow: 0 0 0 0 rgba(212,165,116,0.5); }
+      50%  { box-shadow: 0 0 24px 6px rgba(212,165,116,0.25); }
+      100% { box-shadow: 0 0 0 0 rgba(212,165,116,0); }
+    }
+    .pr-glow { animation: prGlow 1.4s ease-out; }
 
+    .tabular { font-variant-numeric: tabular-nums; }
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     input[type=number] { -moz-appearance: textfield; }
-
     * { -webkit-tap-highlight-color: transparent; }
-
     .press-scale { transition: transform 0.12s ease, opacity 0.12s ease; }
     .press-scale:active { transform: scale(0.97); opacity: 0.85; }
   </style>
@@ -105,7 +95,7 @@
     const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Exercise-to-muscle map (160+ exercises)
+    // Exercise-to-muscle map
     // ─────────────────────────────────────────────────────────────────────────
 
     const EXERCISE_MUSCLE_MAP = {
@@ -176,7 +166,7 @@
     const ALL_EXERCISE_NAMES = Object.keys(EXERCISE_MUSCLE_MAP).sort();
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Workout splits
+    // Splits
     // ─────────────────────────────────────────────────────────────────────────
 
     const SPLITS = [
@@ -193,7 +183,7 @@
     ];
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Frequency + suggestion engine
+    // Utilities
     // ─────────────────────────────────────────────────────────────────────────
 
     function buildExerciseFrequency(workoutsData) {
@@ -201,9 +191,7 @@
       if (!workoutsData) return freq;
       Object.values(workoutsData).forEach(w => {
         if (!w.exercises) return;
-        Object.values(w.exercises).forEach(ex => {
-          if (ex.name) freq[ex.name] = (freq[ex.name] || 0) + 1;
-        });
+        Object.values(w.exercises).forEach(ex => { if (ex.name) freq[ex.name] = (freq[ex.name]||0)+1; });
       });
       return freq;
     }
@@ -212,36 +200,89 @@
       if (split.id === 'free') return [];
       const relevant = Object.entries(EXERCISE_MUSCLE_MAP)
         .filter(([,m]) => m.some(g => split.muscles.includes(g))).map(([n]) => n);
-      const byFreq = [...relevant].sort((a,b) => {
-        const d = (frequency[b]||0) - (frequency[a]||0);
-        return d !== 0 ? d : a.localeCompare(b);
-      });
-      const seen = new Set(byFreq);
-      const merged = [...byFreq];
+      const byFreq = [...relevant].sort((a,b) => { const d=(frequency[b]||0)-(frequency[a]||0); return d||a.localeCompare(b); });
+      const seen = new Set(byFreq), merged = [...byFreq];
       split.defaults.forEach(d => { if (!seen.has(d)) merged.push(d); });
       return merged.map(name => ({ name, selected: split.defaults.includes(name) }));
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Last-weight map (for pre-filling sets)
-    // ─────────────────────────────────────────────────────────────────────────
-
     function buildLastWeightMap(workoutsData) {
       const map = {};
       if (!workoutsData) return map;
-      // Process dates newest-first so first encounter = most recent
-      const dates = Object.keys(workoutsData).sort().reverse();
-      dates.forEach(date => {
+      Object.keys(workoutsData).sort().reverse().forEach(date => {
         const w = workoutsData[date];
         if (!w.exercises) return;
         Object.values(w.exercises).forEach(ex => {
-          if (!ex.name || map[ex.name] !== undefined) return;
-          if (!ex.sets) return;
-          const maxW = Math.max(0, ...Object.values(ex.sets).map(s => parseFloat(s.weight) || 0));
+          if (!ex.name || map[ex.name] !== undefined || !ex.sets) return;
+          const maxW = Math.max(0, ...Object.values(ex.sets).map(s => parseFloat(s.weight)||0));
           if (maxW > 0) map[ex.name] = maxW;
         });
       });
       return map;
+    }
+
+    // Sanitize exercise names for Firebase keys (forbids . # $ / [ ])
+    const fbSafeKey = (str) => str.replace(/[.#$/[\]]/g, '_');
+
+    function todayKey() { return new Date().toISOString().slice(0,10); }
+    let _uid = 0;
+    const uid = () => `${Date.now()}_${++_uid}`;
+
+    function formatDate(key) {
+      // key = "YYYY-MM-DD"
+      const d = new Date(key + 'T12:00:00');
+      return d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+    }
+
+    // Epley estimated 1-rep max
+    const epley = (weight, reps) => reps === 1 ? weight : Math.round(weight * (1 + reps / 30));
+
+    // Return the Sunday that starts the ISO week for a given YYYY-MM-DD key
+    function getWeekStart(dateStr) {
+      const d = new Date(dateStr + 'T12:00:00');
+      d.setDate(d.getDate() - d.getDay());
+      return d.toISOString().slice(0,10);
+    }
+
+    function computeWeeklyVolume(workoutsData, numWeeks=8) {
+      const today = new Date(); today.setHours(12,0,0,0);
+      const curWS = new Date(today); curWS.setDate(today.getDate() - today.getDay());
+      const weeks = [];
+      for (let i = numWeeks-1; i >= 0; i--) {
+        const ws = new Date(curWS); ws.setDate(curWS.getDate() - i*7);
+        weeks.push({
+          start: ws.toISOString().slice(0,10),
+          label: ws.toLocaleDateString('en-US',{month:'numeric',day:'numeric'}),
+          volume: 0,
+        });
+      }
+      if (workoutsData) {
+        Object.entries(workoutsData).forEach(([date, w]) => {
+          const ws = getWeekStart(date);
+          const wk = weeks.find(x => x.start === ws);
+          if (wk) wk.volume += (w.totalVolume || 0);
+        });
+      }
+      return weeks;
+    }
+
+    function computeExerciseHistory(workoutsData, exerciseName) {
+      if (!workoutsData || !exerciseName) return [];
+      const results = [];
+      Object.entries(workoutsData).sort(([a],[b]) => a.localeCompare(b)).forEach(([date, w]) => {
+        if (!w.exercises) return;
+        const found = Object.values(w.exercises).find(ex =>
+          ex.name && ex.name.toLowerCase() === exerciseName.toLowerCase());
+        if (!found || !found.sets) return;
+        const sets = Object.values(found.sets)
+          .filter(s => parseFloat(s.weight) > 0 && parseInt(s.reps) > 0);
+        if (!sets.length) return;
+        const best1rm = Math.max(...sets.map(s => epley(parseFloat(s.weight), parseInt(s.reps))));
+        const bestSet = sets.reduce((b,s) =>
+          epley(parseFloat(s.weight),parseInt(s.reps)) > epley(parseFloat(b.weight),parseInt(b.reps)) ? s : b);
+        results.push({ date, est1rm: best1rm, weight: parseFloat(bestSet.weight), reps: parseInt(bestSet.reps) });
+      });
+      return results; // sorted ascending by date
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -260,13 +301,13 @@
       return [data, loading];
     }
 
-    const fbSet    = (path, v)   => db.ref(path).set(v);
-    const fbUpdate = (path, v)   => db.ref(path).update(v);
-    const fbPush   = (path, v)   => db.ref(path).push(v);
-    const fbRemove = (path)      => db.ref(path).remove();
+    const fbSet    = (path, v) => db.ref(path).set(v);
+    const fbUpdate = (path, v) => db.ref(path).update(v);
+    const fbPush   = (path, v) => db.ref(path).push(v);
+    const fbRemove = (path)    => db.ref(path).remove();
 
     const localGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-    const localSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+    const localSet = (k,v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
 
     async function seedExerciseNames() {
       const snap = await db.ref('drea/exerciseNames').once('value');
@@ -276,9 +317,80 @@
       await db.ref('drea/exerciseNames').set(upd);
     }
 
-    function todayKey() { return new Date().toISOString().slice(0, 10); }
-    let _uid = 0;
-    const uid = () => `${Date.now()}_${++_uid}`;
+    // ─────────────────────────────────────────────────────────────────────────
+    // saveWorkout — persists to Firebase and returns newPRs
+    // ─────────────────────────────────────────────────────────────────────────
+
+    async function saveWorkout(exercises, notes, startTime, split) {
+      const key      = todayKey();
+      const duration = Math.max(1, Math.round((Date.now() - startTime) / 60000));
+
+      // Filter to exercises with a name and at least one logged set
+      const valid = exercises
+        .filter(ex => ex.name.trim())
+        .map(ex => ({
+          name: ex.name.trim(),
+          sets: ex.sets
+            .filter(s => (parseFloat(s.weight)||0) > 0 && (parseInt(s.reps)||0) > 0)
+            .map(s => ({ weight: parseFloat(s.weight), reps: parseInt(s.reps) })),
+        }))
+        .filter(ex => ex.sets.length > 0);
+
+      if (valid.length === 0) return { newPRs: [], totalVolume: 0, duration };
+
+      // Build Firebase exercise object (stable keys)
+      const exObj = {};
+      valid.forEach((ex, i) => {
+        const setsObj = {};
+        ex.sets.forEach((s, j) => {
+          setsObj[`set_${String(j+1).padStart(3,'0')}`] = { weight: s.weight, reps: s.reps };
+        });
+        exObj[`exercise_${String(i+1).padStart(3,'0')}`] = { name: ex.name, sets: setsObj };
+      });
+
+      const totalVolume = valid.reduce((sum, ex) =>
+        sum + ex.sets.reduce((s2, s) => s2 + s.weight * s.reps, 0), 0);
+
+      // Persist workout
+      await fbSet(`drea/workouts/${key}`, {
+        exercises: exObj, totalVolume, duration,
+        notes: notes.trim(), split: split.id, timestamp: Date.now(),
+      });
+
+      // Stats
+      const statsSnap = await db.ref('drea/stats').once('value');
+      const stats = statsSnap.val() || {};
+      await fbUpdate('drea/stats', {
+        totalGymDays: (stats.totalGymDays || 0) + 1,
+        lastWorkoutDate: key,
+      });
+
+      // PR detection (Epley)
+      const newPRs = [];
+      for (const ex of valid) {
+        const best1RM = Math.max(...ex.sets.map(s => epley(s.weight, s.reps)));
+        if (best1RM <= 0) continue;
+        const prKey  = fbSafeKey(ex.name);
+        const prSnap = await db.ref(`drea/personalRecords/${prKey}`).once('value');
+        const prev   = prSnap.val();
+        if (!prev || best1RM > (prev.est1rm || 0)) {
+          const bestSet = ex.sets.reduce((b, s) => epley(s.weight,s.reps) > epley(b.weight,b.reps) ? s : b);
+          await fbSet(`drea/personalRecords/${prKey}`, {
+            name: ex.name, weight: bestSet.weight, reps: bestSet.reps, est1rm: best1RM, date: key,
+          });
+          newPRs.push({ name: ex.name, weight: bestSet.weight, reps: bestSet.reps, est1rm: best1RM });
+        }
+      }
+
+      // Auto-add any new exercise names to the library
+      const namesSnap = await db.ref('drea/exerciseNames').once('value');
+      const existing  = new Set(namesSnap.val() ? Object.values(namesSnap.val()).map(n=>n.toLowerCase()) : []);
+      for (const ex of valid) {
+        if (!existing.has(ex.name.toLowerCase())) await fbPush('drea/exerciseNames', ex.name);
+      }
+
+      return { newPRs, totalVolume, duration };
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Elapsed-time hook
@@ -288,7 +400,7 @@
       const [elapsed, setElapsed] = useState(0);
       useEffect(() => {
         if (!startTime) return;
-        const tick = () => setElapsed(Math.floor((Date.now() - startTime) / 60000));
+        const tick = () => setElapsed(Math.floor((Date.now()-startTime)/60000));
         tick();
         const id = setInterval(tick, 15000);
         return () => clearInterval(id);
@@ -300,81 +412,83 @@
     // SVG Icons
     // ─────────────────────────────────────────────────────────────────────────
 
-    const svgBase = (size, color, sw='1.75') => ({
-      width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
-      stroke: color, strokeWidth: sw, strokeLinecap: 'round', strokeLinejoin: 'round',
+    const svgBase = (sz, c, sw='1.75') => ({
+      width:sz, height:sz, viewBox:'0 0 24 24', fill:'none',
+      stroke:c, strokeWidth:sw, strokeLinecap:'round', strokeLinejoin:'round',
     });
 
-    function IconToday({ size=22, color='currentColor' }) {
-      return <svg {...svgBase(size,color)}>
-        <rect x="3" y="4" width="18" height="18" rx="3"/>
-        <line x1="3" y1="9" x2="21" y2="9"/>
-        <line x1="8" y1="2" x2="8" y2="6"/>
-        <line x1="16" y1="2" x2="16" y2="6"/>
-        <circle cx="12" cy="15" r="1.5" fill={color} stroke="none"/>
-      </svg>;
-    }
-    function IconHistory({ size=22, color='currentColor' }) {
-      return <svg {...svgBase(size,color)}>
-        <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>
-      </svg>;
-    }
-    function IconYou({ size=22, color='currentColor' }) {
-      return <svg {...svgBase(size,color)}>
-        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-      </svg>;
-    }
-    function IconCheck({ size=16, color='currentColor' }) {
-      return <svg {...svgBase(size,color,'2.5')}><polyline points="20 6 9 17 4 12"/></svg>;
-    }
-    function IconChevronLeft({ size=20, color='currentColor' }) {
-      return <svg {...svgBase(size,color,'2')}><polyline points="15 18 9 12 15 6"/></svg>;
-    }
-    function IconChevronRight({ size=18, color='currentColor' }) {
-      return <svg {...svgBase(size,color,'2')}><polyline points="9 18 15 12 9 6"/></svg>;
-    }
-    function IconX({ size=16, color='currentColor' }) {
-      return <svg {...svgBase(size,color,'2')}>
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>;
-    }
-    function IconPlus({ size=16, color='currentColor' }) {
-      return <svg {...svgBase(size,color,'2')}>
-        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>;
-    }
-    function IconDumbbell({ size=32, color='#D4A574' }) {
-      return <svg {...svgBase(size,color)}>
-        <path d="M6 4v16M18 4v16"/>
-        <path d="M4 7h4M16 7h4M4 17h4M16 17h4"/>
-        <line x1="8" y1="12" x2="16" y2="12"/>
-      </svg>;
-    }
+    const IconToday = ({size=22,color='currentColor'}) => <svg {...svgBase(size,color)}>
+      <rect x="3" y="4" width="18" height="18" rx="3"/>
+      <line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/>
+      <line x1="16" y1="2" x2="16" y2="6"/>
+      <circle cx="12" cy="15" r="1.5" fill={color} stroke="none"/>
+    </svg>;
+
+    const IconHistory = ({size=22,color='currentColor'}) => <svg {...svgBase(size,color)}>
+      <circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>
+    </svg>;
+
+    const IconYou = ({size=22,color='currentColor'}) => <svg {...svgBase(size,color)}>
+      <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+    </svg>;
+
+    const IconCheck = ({size=16,color='currentColor'}) => <svg {...svgBase(size,color,'2.5')}>
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>;
+
+    const IconChevronLeft = ({size=20,color='currentColor'}) => <svg {...svgBase(size,color,'2')}>
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>;
+
+    const IconChevronRight = ({size=18,color='currentColor'}) => <svg {...svgBase(size,color,'2')}>
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>;
+
+    const IconChevronDown = ({size=16,color='currentColor'}) => <svg {...svgBase(size,color,'2')}>
+      <polyline points="6 9 12 15 18 9"/>
+    </svg>;
+
+    const IconX = ({size=16,color='currentColor'}) => <svg {...svgBase(size,color,'2')}>
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>;
+
+    const IconPlus = ({size=16,color='currentColor'}) => <svg {...svgBase(size,color,'2')}>
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>;
+
+    const IconStar = ({size=18,color='currentColor'}) => <svg {...svgBase(size,color,'1.75')}>
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </svg>;
+
+    const IconDumbbell = ({size=32,color='#D4A574'}) => <svg {...svgBase(size,color)}>
+      <path d="M6 4v16M18 4v16"/>
+      <path d="M4 7h4M16 7h4M4 17h4M16 17h4"/>
+      <line x1="8" y1="12" x2="16" y2="12"/>
+    </svg>;
+
     function SplitIcon({ id, size=26, color='#D4A574' }) {
-      const p = svgBase(size, color);
-      if (id === 'chest_back') return <svg {...p}>
+      const p = svgBase(size,color);
+      if (id==='chest_back') return <svg {...p}>
         <rect x="3" y="10" width="18" height="4" rx="2"/>
         <rect x="1" y="7" width="4" height="10" rx="2"/>
         <rect x="19" y="7" width="4" height="10" rx="2"/>
         <line x1="7" y1="12" x2="17" y2="12"/>
       </svg>;
-      if (id === 'bis_tris') return <svg {...p}>
-        <path d="M6 18 Q4 12 8 8 Q12 4 14 8"/>
-        <path d="M14 8 Q18 12 16 18"/>
+      if (id==='bis_tris') return <svg {...p}>
+        <path d="M6 18 Q4 12 8 8 Q12 4 14 8"/><path d="M14 8 Q18 12 16 18"/>
         <line x1="6" y1="18" x2="16" y2="18"/>
       </svg>;
-      if (id === 'shoulders') return <svg {...p}>
+      if (id==='shoulders') return <svg {...p}>
         <circle cx="12" cy="6" r="2"/>
         <path d="M5 12 Q8 8 12 8 Q16 8 19 12"/>
-        <line x1="2" y1="12" x2="6" y2="12"/>
-        <line x1="18" y1="12" x2="22" y2="12"/>
+        <line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/>
         <line x1="12" y1="8" x2="12" y2="20"/>
       </svg>;
-      if (id === 'legs_abs') return <svg {...p}>
+      if (id==='legs_abs') return <svg {...p}>
         <path d="M8 3 L8 12 L5 21"/><path d="M16 3 L16 12 L19 21"/>
         <line x1="8" y1="12" x2="16" y2="12"/><line x1="7" y1="3" x2="17" y2="3"/>
       </svg>;
-      if (id === 'back_traps') return <svg {...p}>
+      if (id==='back_traps') return <svg {...p}>
         <path d="M5 20 Q5 10 12 7 Q19 10 19 20"/>
         <path d="M9 14 Q12 11 15 14"/><path d="M8 17 Q12 14 16 17"/>
       </svg>;
@@ -385,51 +499,319 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // ExerciseInput — reusable autocomplete
+    // ExerciseInput — autocomplete
     // ─────────────────────────────────────────────────────────────────────────
 
     function ExerciseInput({ value, onChange, onSelect, exerciseNames=[], placeholder='Exercise name...' }) {
       const [open, setOpen]   = useState(false);
-      const [query, setQuery] = useState(value || '');
+      const [query, setQuery] = useState(value||'');
       const closeTimer        = useRef(null);
-
-      useEffect(() => { setQuery(value || ''); }, [value]);
-
+      useEffect(() => { setQuery(value||''); }, [value]);
       const suggestions = useMemo(() => {
-        const q = query.trim().toLowerCase();
-        const pool = exerciseNames.length ? exerciseNames : ALL_EXERCISE_NAMES;
-        return q ? pool.filter(n => n.toLowerCase().includes(q)).slice(0, 10) : pool.slice(0, 10);
+        const q = query.trim().toLowerCase(), pool = exerciseNames.length ? exerciseNames : ALL_EXERCISE_NAMES;
+        return q ? pool.filter(n=>n.toLowerCase().includes(q)).slice(0,10) : pool.slice(0,10);
       }, [query, exerciseNames]);
-
-      const handleSelect = (name) => {
-        setQuery(name); onChange && onChange(name); onSelect && onSelect(name); setOpen(false);
-      };
-
+      const pick = (name) => { setQuery(name); onChange&&onChange(name); onSelect&&onSelect(name); setOpen(false); };
       return (
-        <div style={{ position: 'relative', width: '100%' }}>
+        <div style={{ position:'relative', width:'100%' }}>
           <input type="text" value={query}
-            onChange={e => { setQuery(e.target.value); onChange && onChange(e.target.value); setOpen(true); }}
-            onFocus={() => { clearTimeout(closeTimer.current); setOpen(true); }}
-            onBlur={() => { closeTimer.current = setTimeout(() => setOpen(false), 150); }}
-            placeholder={placeholder}
-            autoComplete="off" autoCorrect="off" autoCapitalize="words" spellCheck="false"
-            style={{ width:'100%', background:'#222', border:'1px solid #2e2e2e', borderRadius:10,
-              padding:'9px 13px', color:'#F0EDE8', fontSize:15, fontWeight:500, outline:'none' }}
+            onChange={e=>{setQuery(e.target.value);onChange&&onChange(e.target.value);setOpen(true);}}
+            onFocus={()=>{clearTimeout(closeTimer.current);setOpen(true);}}
+            onBlur={()=>{closeTimer.current=setTimeout(()=>setOpen(false),150);}}
+            placeholder={placeholder} autoComplete="off" autoCorrect="off" autoCapitalize="words" spellCheck="false"
+            style={{width:'100%',background:'#222',border:'1px solid #2e2e2e',borderRadius:10,
+              padding:'9px 13px',color:'#F0EDE8',fontSize:15,fontWeight:500,outline:'none'}}
           />
           {open && suggestions.length > 0 && (
-            <div style={{ position:'absolute', top:'calc(100% + 4px)', left:0, right:0,
-              background:'#1e1e1e', border:'1px solid #2e2e2e', borderRadius:10,
-              overflow:'hidden', zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,0.6)' }}>
+            <div style={{position:'absolute',top:'calc(100% + 4px)',left:0,right:0,
+              background:'#1e1e1e',border:'1px solid #2e2e2e',borderRadius:10,
+              overflow:'hidden',zIndex:200,boxShadow:'0 8px 24px rgba(0,0,0,0.6)'}}>
               {suggestions.map(name => (
-                <button key={name} onMouseDown={() => handleSelect(name)}
-                  style={{ display:'block', width:'100%', textAlign:'left',
-                    padding:'11px 14px', background:'none', border:'none',
-                    borderBottom:'1px solid #262626', color:'#F0EDE8', fontSize:14, cursor:'pointer' }}
-                  onMouseEnter={e => e.currentTarget.style.background='#2a2a2a'}
-                  onMouseLeave={e => e.currentTarget.style.background='none'}>
+                <button key={name} onMouseDown={()=>pick(name)}
+                  style={{display:'block',width:'100%',textAlign:'left',
+                    padding:'11px 14px',background:'none',border:'none',
+                    borderBottom:'1px solid #262626',color:'#F0EDE8',fontSize:14,cursor:'pointer'}}
+                  onMouseEnter={e=>e.currentTarget.style.background='#2a2a2a'}
+                  onMouseLeave={e=>e.currentTarget.style.background='none'}>
                   {name}
                 </button>
               ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PR Celebration Banner
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function PRBanner({ prs, onDismiss }) {
+      return (
+        <div className="pr-glow fade-in"
+          style={{ background:'rgba(212,165,116,0.12)', border:'1px solid rgba(212,165,116,0.4)',
+            borderRadius:14, padding:'16px 18px', marginBottom:16 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <IconStar size={16} color="#D4A574"/>
+              <span style={{ fontSize:14, fontWeight:700, color:'#D4A574' }}>
+                {prs.length === 1 ? 'New Personal Record!' : `${prs.length} New Personal Records!`}
+              </span>
+            </div>
+            <button onClick={onDismiss}
+              style={{ background:'none', border:'none', cursor:'pointer', color:'#8A8680', padding:4 }}>
+              <IconX size={14} color="currentColor"/>
+            </button>
+          </div>
+          {prs.map(pr => (
+            <div key={pr.name} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              padding:'6px 0', borderTop:'1px solid rgba(212,165,116,0.15)' }}>
+              <span style={{ fontSize:13, color:'#F0EDE8', fontWeight:500 }}>{pr.name}</span>
+              <span style={{ fontSize:13, color:'#D4A574', fontWeight:600, fontVariantNumeric:'tabular-nums' }}>
+                {pr.weight} × {pr.reps} — {pr.est1rm} lbs e1RM
+              </span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Today Summary — post-workout card
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function TodaySummary({ workoutKey, workout, newPRs, onDismissPRs, onLogAnother }) {
+      const [expanded, setExpanded] = useState(false);
+
+      const exercises = workout.exercises
+        ? Object.keys(workout.exercises).sort().map(k => workout.exercises[k])
+        : [];
+
+      const exCount   = exercises.length;
+      const vol       = (workout.totalVolume || 0).toLocaleString();
+      const dur       = workout.duration || 0;
+      const splitLabel = SPLITS.find(s => s.id === workout.split)?.label || 'Free Workout';
+
+      return (
+        <div className="fade-in" style={{ padding:'20px 20px 0' }}>
+
+          {/* PR banner */}
+          {newPRs && newPRs.length > 0 && (
+            <PRBanner prs={newPRs} onDismiss={onDismissPRs}/>
+          )}
+
+          {/* Summary card */}
+          <div style={{ background:'#1a1a1a', border:'1px solid #262626', borderRadius:16, overflow:'hidden', marginBottom:12 }}>
+
+            {/* Header row — tap to expand */}
+            <button onClick={() => setExpanded(e => !e)}
+              style={{ width:'100%', display:'flex', alignItems:'center', gap:14,
+                padding:'16px 18px', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:14, fontWeight:700, color:'#F0EDE8', marginBottom:5 }}>
+                  {formatDate(workoutKey)} — {splitLabel}
+                </div>
+                <div style={{ display:'flex', gap:16 }}>
+                  <span style={{ fontSize:12, color:'#8A8680' }}>
+                    <span className="tabular" style={{ color:'#D4A574', fontWeight:600 }}>{exCount}</span> exercises
+                  </span>
+                  <span style={{ fontSize:12, color:'#8A8680' }}>
+                    <span className="tabular" style={{ color:'#D4A574', fontWeight:600 }}>{dur}</span>m
+                  </span>
+                  <span style={{ fontSize:12, color:'#8A8680' }}>
+                    <span className="tabular" style={{ color:'#D4A574', fontWeight:600 }}>{vol}</span> lbs
+                  </span>
+                </div>
+              </div>
+              <div style={{ color:'#4A4744', transition:'transform 0.2s',
+                transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                <IconChevronDown size={16} color="currentColor"/>
+              </div>
+            </button>
+
+            {/* Expanded details */}
+            {expanded && (
+              <div style={{ borderTop:'1px solid #262626', padding:'12px 18px 16px' }}>
+                {exercises.map((ex, i) => {
+                  const sets = ex.sets ? Object.keys(ex.sets).sort().map(k => ex.sets[k]) : [];
+                  return (
+                    <div key={i} style={{ marginBottom: i < exercises.length-1 ? 14 : 0 }}>
+                      <div style={{ fontSize:13, fontWeight:600, color:'#D4A574', marginBottom:4 }}>
+                        {ex.name}
+                      </div>
+                      {sets.map((s, j) => (
+                        <div key={j} style={{ fontSize:12, color:'#8A8680', paddingLeft:8,
+                          fontVariantNumeric:'tabular-nums', lineHeight:1.7 }}>
+                          Set {j+1}: {s.weight} lbs × {s.reps} reps
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {workout.notes && (
+                  <p style={{ fontSize:12, color:'#8A8680', fontStyle:'italic',
+                    marginTop:12, paddingTop:12, borderTop:'1px solid #262626', lineHeight:1.5 }}>
+                    {workout.notes}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Log another */}
+          <button onClick={onLogAnother} className="press-scale"
+            style={{ width:'100%', padding:'12px 0', borderRadius:11, border:'1px solid #2e2e2e',
+              background:'transparent', color:'#8A8680', fontSize:14, fontWeight:600, cursor:'pointer' }}>
+            Log Another Workout
+          </button>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ProgressionChart — SVG line chart (est. 1RM over time)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function ProgressionChart({ data }) {
+      if (!data || data.length < 2) return (
+        <div style={{height:120,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <span style={{fontSize:13,color:'#4A4744'}}>
+            {data && data.length===1 ? 'Log one more session to see your trend.' : 'No data yet.'}
+          </span>
+        </div>
+      );
+      const W=320, H=150, PL=46, PR=12, PT=12, PB=28;
+      const plotW=W-PL-PR, plotH=H-PT-PB;
+      const timestamps = data.map(d => new Date(d.date+'T12:00:00').getTime());
+      const yVals = data.map(d => d.est1rm);
+      const tMin=Math.min(...timestamps), tMax=Math.max(...timestamps);
+      const yMin=Math.min(...yVals), yMax=Math.max(...yVals);
+      const tRange=tMax-tMin||1;
+      const yPad = Math.max(5, Math.round((yMax-yMin)*0.18)) || 10;
+      const yLow=yMin-yPad, yHigh=yMax+yPad, yRange=yHigh-yLow;
+      const toX = t => PL + ((t-tMin)/tRange)*plotW;
+      const toY = v => PT + ((yHigh-v)/yRange)*plotH;
+      const pts = data.map((d,i) => ({ x:toX(timestamps[i]), y:toY(d.est1rm), ...d }));
+      const linePath = pts.map((p,i) => `${i?'L':'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+      const areaPath = linePath
+        + ` L${pts[pts.length-1].x.toFixed(1)},${(PT+plotH).toFixed(1)}`
+        + ` L${PL},${(PT+plotH).toFixed(1)} Z`;
+      const yGridVals = [0.25,0.5,0.75].map(f => Math.round(yLow+f*yRange));
+      const xLabelIdxs = data.length<=3
+        ? data.map((_,i)=>i)
+        : [0,Math.floor((data.length-1)/2),data.length-1];
+      const xLabelPts = [...new Set(xLabelIdxs)].map(i => pts[i]);
+      const dateShort = key => new Date(key+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:'block'}}>
+          {yGridVals.map((v,i) => {
+            const gy = toY(v);
+            return (
+              <g key={i}>
+                <line x1={PL} y1={gy.toFixed(1)} x2={W-PR} y2={gy.toFixed(1)} stroke="#262626" strokeWidth="1"/>
+                <text x={PL-6} y={(gy+3.5).toFixed(1)} textAnchor="end" fill="#4A4744" fontSize="9" fontFamily="-apple-system,sans-serif">{v}</text>
+              </g>
+            );
+          })}
+          <path d={areaPath} fill="rgba(212,165,116,0.07)"/>
+          <path d={linePath} fill="none" stroke="#D4A574" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          {pts.map((p,i) => <circle key={i} cx={p.x.toFixed(1)} cy={p.y.toFixed(1)} r="3.5" fill="#D4A574"/>)}
+          {xLabelPts.map((p,i) => (
+            <text key={i} x={p.x.toFixed(1)} y={H-4}
+              textAnchor={i===0?'start':i===xLabelPts.length-1?'end':'middle'}
+              fill="#4A4744" fontSize="9" fontFamily="-apple-system,sans-serif">
+              {dateShort(p.date)}
+            </text>
+          ))}
+        </svg>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // WeeklyVolumeChart — SVG bar chart (last 8 weeks)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function WeeklyVolumeChart({ weeklyData }) {
+      const maxVol = Math.max(...weeklyData.map(w => w.volume), 1);
+      const W=320, H=120, PL=4, PR=4, PT=8, PB=28;
+      const plotW=W-PL-PR, plotH=H-PT-PB;
+      const n=weeklyData.length;
+      const barW=plotW/n;
+      const barGap=3;
+      const actualBarW=barW-barGap;
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{display:'block'}}>
+          {weeklyData.map((wk,i) => {
+            const bh = Math.max(wk.volume>0?3:0, (wk.volume/maxVol)*plotH);
+            const bx = PL + i*barW + barGap/2;
+            const by = PT + plotH - bh;
+            const cx = bx + actualBarW/2;
+            return (
+              <g key={i}>
+                <rect x={bx.toFixed(1)} y={by.toFixed(1)} width={actualBarW.toFixed(1)} height={bh.toFixed(1)} rx="3" fill={wk.volume>0?'#D4A574':'#222'}/>
+                <text x={cx.toFixed(1)} y={H-8} textAnchor="middle" fill="#4A4744" fontSize="8" fontFamily="-apple-system,sans-serif">{wk.label}</text>
+              </g>
+            );
+          })}
+        </svg>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // WorkoutCard — expandable accordion entry in History list
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function WorkoutCard({ dateKey, workout }) {
+      const [exp, setExp] = useState(false);
+      const splitLabel = SPLITS.find(s => s.id === workout.split)?.label || 'Free Workout';
+      const exs = workout.exercises
+        ? Object.keys(workout.exercises).sort().map(k => workout.exercises[k])
+        : [];
+      return (
+        <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,marginBottom:10,overflow:'hidden'}}>
+          <button onClick={() => setExp(e => !e)} className="press-scale"
+            style={{width:'100%',display:'flex',alignItems:'center',gap:12,
+              padding:'14px 16px',background:'none',border:'none',cursor:'pointer',textAlign:'left'}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:14,fontWeight:700,color:'#F0EDE8',marginBottom:4}}>{formatDate(dateKey)}</div>
+              <div style={{display:'flex',gap:14,flexWrap:'wrap'}}>
+                <span style={{fontSize:12,color:'#8A8680'}}>{splitLabel}</span>
+                <span style={{fontSize:12,color:'#8A8680'}}>
+                  <span className="tabular" style={{color:'#D4A574',fontWeight:600}}>{exs.length}</span> exercises
+                </span>
+                <span style={{fontSize:12,color:'#8A8680'}}>
+                  <span className="tabular" style={{color:'#D4A574',fontWeight:600}}>{workout.duration||0}</span>m
+                </span>
+                <span style={{fontSize:12,color:'#8A8680'}}>
+                  <span className="tabular" style={{color:'#D4A574',fontWeight:600}}>{(workout.totalVolume||0).toLocaleString()}</span> lbs
+                </span>
+              </div>
+            </div>
+            <div style={{color:'#4A4744',transition:'transform 0.2s',
+              transform:exp?'rotate(180deg)':'rotate(0deg)',flexShrink:0}}>
+              <IconChevronDown size={16} color="currentColor"/>
+            </div>
+          </button>
+          {exp && (
+            <div style={{borderTop:'1px solid #262626',padding:'12px 16px 14px'}}>
+              {exs.map((ex,i) => {
+                const sets = ex.sets ? Object.keys(ex.sets).sort().map(k => ex.sets[k]) : [];
+                return (
+                  <div key={i} style={{marginBottom:i<exs.length-1?12:0}}>
+                    <div style={{fontSize:13,fontWeight:600,color:'#D4A574',marginBottom:3}}>{ex.name}</div>
+                    {sets.map((s,j) => (
+                      <div key={j} style={{fontSize:12,color:'#8A8680',paddingLeft:8,
+                        fontVariantNumeric:'tabular-nums',lineHeight:1.8}}>
+                        Set {j+1}: {s.weight} lbs × {s.reps} reps
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+              {workout.notes && (
+                <p style={{fontSize:12,color:'#8A8680',fontStyle:'italic',marginTop:10,
+                  paddingTop:10,borderTop:'1px solid #262626',lineHeight:1.5}}>{workout.notes}</p>
+              )}
             </div>
           )}
         </div>
@@ -442,55 +824,57 @@
 
     function SeedingScreen() {
       return (
-        <div style={{ height:'100dvh', background:'#0f0f0f', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16 }}>
-          <svg className="spin" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D4A574" strokeWidth="2" strokeLinecap="round">
+        <div style={{height:'100dvh',background:'#0f0f0f',display:'flex',flexDirection:'column',
+          alignItems:'center',justifyContent:'center',gap:16}}>
+          <svg className="spin" width="28" height="28" viewBox="0 0 24 24" fill="none"
+            stroke="#D4A574" strokeWidth="2" strokeLinecap="round">
             <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
           </svg>
-          <p style={{ color:'#8A8680', fontSize:13 }}>Setting up your exercise library...</p>
+          <p style={{color:'#8A8680',fontSize:13}}>Setting up your exercise library...</p>
         </div>
       );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Split picker — Step 1 (choose split)
+    // Split picker — Step 1
     // ─────────────────────────────────────────────────────────────────────────
 
     function SplitPickerStep1({ onSelect, onCancel }) {
       const FREE = { id:'free', label:'Free Workout', muscles:[] };
       return (
-        <div className="fade-in" style={{ padding:'20px 20px 32px' }}>
-          <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:24 }}>
+        <div className="fade-in" style={{padding:'20px 20px 32px'}}>
+          <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:24}}>
             <div>
-              <h2 style={{ fontSize:20, fontWeight:700, color:'#F0EDE8', lineHeight:1.2 }}>What are you training?</h2>
-              <p style={{ fontSize:13, color:'#8A8680', marginTop:4 }}>Pick a split for exercise suggestions.</p>
+              <h2 style={{fontSize:20,fontWeight:700,color:'#F0EDE8',lineHeight:1.2}}>What are you training?</h2>
+              <p style={{fontSize:13,color:'#8A8680',marginTop:4}}>Pick a split for exercise suggestions.</p>
             </div>
-            <button onClick={onCancel} style={{ background:'none', border:'none', color:'#8A8680', fontSize:14, cursor:'pointer', paddingTop:2 }}>Cancel</button>
+            <button onClick={onCancel} style={{background:'none',border:'none',color:'#8A8680',fontSize:14,cursor:'pointer',paddingTop:2}}>Cancel</button>
           </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
             {SPLITS.map(split => (
               <button key={split.id}
-                onClick={() => { navigator.vibrate && navigator.vibrate(10); onSelect(split); }}
+                onClick={()=>{navigator.vibrate&&navigator.vibrate(10);onSelect(split);}}
                 className="press-scale"
-                style={{ background:'#1a1a1a', border:'1px solid #262626', borderRadius:14,
-                  padding:'15px 18px', display:'flex', alignItems:'center', gap:16,
-                  cursor:'pointer', textAlign:'left', width:'100%' }}>
+                style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,
+                  padding:'15px 18px',display:'flex',alignItems:'center',gap:16,
+                  cursor:'pointer',textAlign:'left',width:'100%'}}>
                 <SplitIcon id={split.id} size={26} color="#D4A574"/>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <div style={{ fontSize:15, fontWeight:600, color:'#F0EDE8' }}>{split.label}</div>
-                  <div style={{ fontSize:12, color:'#8A8680', marginTop:3 }}>{split.defaults.slice(0,3).join(' · ')}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:15,fontWeight:600,color:'#F0EDE8'}}>{split.label}</div>
+                  <div style={{fontSize:12,color:'#8A8680',marginTop:3}}>{split.defaults.slice(0,3).join(' · ')}</div>
                 </div>
                 <IconChevronRight size={16} color="#4A4744"/>
               </button>
             ))}
-            <button onClick={() => { navigator.vibrate && navigator.vibrate(10); onSelect(FREE); }}
+            <button onClick={()=>{navigator.vibrate&&navigator.vibrate(10);onSelect(FREE);}}
               className="press-scale"
-              style={{ background:'transparent', border:'1.5px dashed #2e2e2e', borderRadius:14,
-                padding:'15px 18px', display:'flex', alignItems:'center', gap:16,
-                cursor:'pointer', textAlign:'left', width:'100%', marginTop:4 }}>
+              style={{background:'transparent',border:'1.5px dashed #2e2e2e',borderRadius:14,
+                padding:'15px 18px',display:'flex',alignItems:'center',gap:16,
+                cursor:'pointer',textAlign:'left',width:'100%',marginTop:4}}>
               <SplitIcon id="free" size={26} color="#8A8680"/>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:15, fontWeight:600, color:'#F0EDE8' }}>Free Workout</div>
-                <div style={{ fontSize:12, color:'#8A8680', marginTop:3 }}>Log anything — no suggestions</div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:15,fontWeight:600,color:'#F0EDE8'}}>Free Workout</div>
+                <div style={{fontSize:12,color:'#8A8680',marginTop:3}}>Log anything — no suggestions</div>
               </div>
               <IconChevronRight size={16} color="#4A4744"/>
             </button>
@@ -500,56 +884,55 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Split picker — Step 2 (toggle exercises)
+    // Split picker — Step 2
     // ─────────────────────────────────────────────────────────────────────────
 
     function SplitPickerStep2({ split, exercises, onToggle, onBack, onCancel, onStart }) {
-      const selectedCount = exercises.filter(e => e.selected).length;
+      const n = exercises.filter(e=>e.selected).length;
       return (
-        <div className="fade-in" style={{ display:'flex', flexDirection:'column', height:'100%' }}>
-          <div style={{ padding:'16px 20px 14px', borderBottom:'1px solid #1e1e1e', flexShrink:0 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-              <button onClick={onBack} style={{ background:'none', border:'none', cursor:'pointer', padding:4, display:'flex', alignItems:'center' }}>
+        <div className="fade-in" style={{display:'flex',flexDirection:'column',height:'100%'}}>
+          <div style={{padding:'16px 20px 14px',borderBottom:'1px solid #1e1e1e',flexShrink:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:12}}>
+              <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',padding:4,display:'flex',alignItems:'center'}}>
                 <IconChevronLeft size={20} color="#8A8680"/>
               </button>
-              <div style={{ flex:1 }}>
-                <h2 style={{ fontSize:17, fontWeight:700, color:'#F0EDE8' }}>{split.label}</h2>
-                <p style={{ fontSize:12, color:'#8A8680', marginTop:2 }}>Tap to add or remove exercises.</p>
+              <div style={{flex:1}}>
+                <h2 style={{fontSize:17,fontWeight:700,color:'#F0EDE8'}}>{split.label}</h2>
+                <p style={{fontSize:12,color:'#8A8680',marginTop:2}}>Tap to add or remove exercises.</p>
               </div>
-              <button onClick={onCancel} style={{ background:'none', border:'none', color:'#8A8680', fontSize:13, cursor:'pointer' }}>Cancel</button>
+              <button onClick={onCancel} style={{background:'none',border:'none',color:'#8A8680',fontSize:13,cursor:'pointer'}}>Cancel</button>
             </div>
           </div>
-          <div style={{ flex:1, overflowY:'auto', padding:'12px 20px' }}>
-            {exercises.map((ex, i) => (
-              <button key={ex.name} onClick={() => onToggle(i)} className="press-scale"
-                style={{ display:'flex', alignItems:'center', gap:14, width:'100%',
-                  padding:'12px 14px', marginBottom:6,
-                  background: ex.selected ? 'rgba(212,165,116,0.07)' : '#1a1a1a',
-                  border:`1px solid ${ex.selected ? '#D4A574' : '#262626'}`,
-                  borderRadius:11, cursor:'pointer', textAlign:'left',
-                  opacity: ex.selected ? 1 : 0.55, transition:'all 0.15s' }}>
-                <div style={{ width:20, height:20, borderRadius:6, flexShrink:0,
-                  background: ex.selected ? '#D4A574' : 'transparent',
-                  border:`1.5px solid ${ex.selected ? '#D4A574' : '#3a3a3a'}`,
-                  display:'flex', alignItems:'center', justifyContent:'center', transition:'all 0.15s' }}>
-                  {ex.selected && <IconCheck size={11} color="#0f0f0f"/>}
+          <div style={{flex:1,overflowY:'auto',padding:'12px 20px'}}>
+            {exercises.map((ex,i) => (
+              <button key={ex.name} onClick={()=>onToggle(i)} className="press-scale"
+                style={{display:'flex',alignItems:'center',gap:14,width:'100%',
+                  padding:'12px 14px',marginBottom:6,
+                  background:ex.selected?'rgba(212,165,116,0.07)':'#1a1a1a',
+                  border:`1px solid ${ex.selected?'#D4A574':'#262626'}`,
+                  borderRadius:11,cursor:'pointer',textAlign:'left',
+                  opacity:ex.selected?1:0.55,transition:'all 0.15s'}}>
+                <div style={{width:20,height:20,borderRadius:6,flexShrink:0,
+                  background:ex.selected?'#D4A574':'transparent',
+                  border:`1.5px solid ${ex.selected?'#D4A574':'#3a3a3a'}`,
+                  display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.15s'}}>
+                  {ex.selected&&<IconCheck size={11} color="#0f0f0f"/>}
                 </div>
-                <span style={{ fontSize:14, fontWeight:500, color:'#F0EDE8' }}>{ex.name}</span>
+                <span style={{fontSize:14,fontWeight:500,color:'#F0EDE8'}}>{ex.name}</span>
               </button>
             ))}
-            <div style={{ height:90 }}/>
+            <div style={{height:90}}/>
           </div>
-          <div style={{ position:'absolute', bottom:0, left:0, right:0,
-            padding:'12px 20px', background:'#0f0f0f', borderTop:'1px solid #1e1e1e',
-            paddingBottom:'calc(12px + env(safe-area-inset-bottom, 0px))' }}>
-            <button onClick={() => { navigator.vibrate && navigator.vibrate(20); onStart(); }}
-              disabled={selectedCount === 0} className="press-scale"
-              style={{ width:'100%', padding:'14px 20px', borderRadius:12, border:'none',
-                background: selectedCount > 0 ? '#D4A574' : '#2a2a2a',
-                color: selectedCount > 0 ? '#0f0f0f' : '#4A4744',
-                fontSize:15, fontWeight:700, cursor: selectedCount > 0 ? 'pointer' : 'default',
-                transition:'background 0.2s, color 0.2s' }}>
-              {selectedCount > 0 ? `Start Workout (${selectedCount})` : 'Select at least one exercise'}
+          <div style={{position:'absolute',bottom:0,left:0,right:0,
+            padding:'12px 20px',background:'#0f0f0f',borderTop:'1px solid #1e1e1e',
+            paddingBottom:'calc(12px + env(safe-area-inset-bottom, 0px))'}}>
+            <button onClick={()=>{navigator.vibrate&&navigator.vibrate(20);onStart();}}
+              disabled={n===0} className="press-scale"
+              style={{width:'100%',padding:'14px 20px',borderRadius:12,border:'none',
+                background:n>0?'#D4A574':'#2a2a2a',color:n>0?'#0f0f0f':'#4A4744',
+                fontSize:15,fontWeight:700,cursor:n>0?'pointer':'default',
+                transition:'background 0.2s,color 0.2s'}}>
+              {n>0?`Start Workout (${n})`:'Select at least one exercise'}
             </button>
           </div>
         </div>
@@ -563,59 +946,35 @@
     function SetRow({ setNum, set, onChange, onRemove, autoFocusWeight }) {
       const weightRef = useRef(null);
       useEffect(() => {
-        if (autoFocusWeight && weightRef.current) {
-          weightRef.current.focus();
-          weightRef.current.select();
-        }
+        if (autoFocusWeight && weightRef.current) { weightRef.current.focus(); weightRef.current.select(); }
       }, [autoFocusWeight]);
-
       const inputBase = {
-        background:'#242424', border:'1px solid #2e2e2e', borderRadius:8,
-        color:'#F0EDE8', fontSize:16, fontWeight:600, outline:'none',
-        textAlign:'center', minHeight:44, padding:'0 4px',
-        fontVariantNumeric:'tabular-nums',
-        transition:'border-color 0.15s',
+        background:'#242424',border:'1px solid #2e2e2e',borderRadius:8,
+        color:'#F0EDE8',fontSize:16,fontWeight:600,outline:'none',
+        textAlign:'center',minHeight:44,padding:'0 4px',
+        fontVariantNumeric:'tabular-nums',transition:'border-color 0.15s',
       };
-
       return (
-        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
-          {/* Set number */}
-          <span style={{ color:'#4A4744', fontSize:12, fontWeight:500, width:22, textAlign:'right', flexShrink:0 }}>
-            {setNum}
-          </span>
-
-          {/* Weight */}
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+          <span style={{color:'#4A4744',fontSize:12,fontWeight:500,width:22,textAlign:'right',flexShrink:0}}>{setNum}</span>
           <input ref={weightRef} type="number" inputMode="decimal" step="2.5" min="0"
-            value={set.weight} placeholder="0"
-            onChange={e => onChange('weight', e.target.value)}
-            onFocus={e => e.target.select()}
-            style={{ ...inputBase, width:72 }}
-            onFocus={e => { e.target.select(); e.target.style.borderColor='#D4A574'; }}
-            onBlur={e => e.target.style.borderColor='#2e2e2e'}
-          />
-
-          {/* Separator */}
-          <span style={{ color:'#4A4744', fontSize:14, fontWeight:500, flexShrink:0 }}>×</span>
-
-          {/* Reps */}
+            value={set.weight} placeholder="0" onChange={e=>onChange('weight',e.target.value)}
+            onFocus={e=>{e.target.select();e.target.style.borderColor='#D4A574';}}
+            onBlur={e=>e.target.style.borderColor='#2e2e2e'}
+            style={{...inputBase,width:72}}/>
+          <span style={{color:'#4A4744',fontSize:14,fontWeight:500,flexShrink:0}}>×</span>
           <input type="number" inputMode="numeric" min="0"
-            value={set.reps} placeholder="0"
-            onChange={e => onChange('reps', e.target.value)}
-            onFocus={e => { e.target.select(); e.target.style.borderColor='#D4A574'; }}
-            onBlur={e => e.target.style.borderColor='#2e2e2e'}
-            style={{ ...inputBase, width:58 }}
-          />
-
-          {/* Reps label */}
-          <span style={{ color:'#4A4744', fontSize:11, flexShrink:0 }}>reps</span>
-
-          {/* Delete set */}
+            value={set.reps} placeholder="0" onChange={e=>onChange('reps',e.target.value)}
+            onFocus={e=>{e.target.select();e.target.style.borderColor='#D4A574';}}
+            onBlur={e=>e.target.style.borderColor='#2e2e2e'}
+            style={{...inputBase,width:58}}/>
+          <span style={{color:'#4A4744',fontSize:11,flexShrink:0}}>reps</span>
           <button onClick={onRemove}
-            style={{ marginLeft:'auto', background:'none', border:'none', cursor:'pointer',
-              color:'#3a3a3a', padding:8, display:'flex', alignItems:'center', flexShrink:0,
-              borderRadius:6, transition:'color 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.color='#C47070'}
-            onMouseLeave={e => e.currentTarget.style.color='#3a3a3a'}>
+            style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',
+              color:'#3a3a3a',padding:8,display:'flex',alignItems:'center',flexShrink:0,
+              borderRadius:6,transition:'color 0.15s'}}
+            onMouseEnter={e=>e.currentTarget.style.color='#C47070'}
+            onMouseLeave={e=>e.currentTarget.style.color='#3a3a3a'}>
             <IconX size={14} color="currentColor"/>
           </button>
         </div>
@@ -624,79 +983,50 @@
 
     function ExerciseBlock({ exercise, onUpdate, onRemove, exerciseNames, lastWeightMap }) {
       const [newSetId, setNewSetId] = useState(null);
-
       const exVolume = useMemo(() =>
-        exercise.sets.reduce((sum, s) => sum + (parseFloat(s.weight)||0) * (parseInt(s.reps)||0), 0),
+        exercise.sets.reduce((sum,s)=>sum+(parseFloat(s.weight)||0)*(parseInt(s.reps)||0),0),
         [exercise.sets]);
-
-      const handleSetChange = (setId, field, value) => {
-        onUpdate({ ...exercise, sets: exercise.sets.map(s => s.id === setId ? { ...s, [field]: value } : s) });
-      };
-
-      const handleRemoveSet = (setId) => {
-        if (exercise.sets.length <= 1) return;
-        onUpdate({ ...exercise, sets: exercise.sets.filter(s => s.id !== setId) });
-      };
-
       const handleAddSet = () => {
-        const last = exercise.sets[exercise.sets.length - 1];
-        const prefillWeight = last
-          ? last.weight
-          : (lastWeightMap[exercise.name] ? String(lastWeightMap[exercise.name]) : '');
-        const id = `set_${uid()}`;
-        setNewSetId(id);
-        onUpdate({ ...exercise, sets: [...exercise.sets, { id, weight: prefillWeight, reps: '' }] });
+        const last = exercise.sets[exercise.sets.length-1];
+        const w = last ? last.weight : (lastWeightMap[exercise.name] ? String(lastWeightMap[exercise.name]) : '');
+        const id = `set_${uid()}`; setNewSetId(id);
+        onUpdate({...exercise, sets:[...exercise.sets,{id,weight:w,reps:''}]});
       };
-
       return (
-        <div style={{ background:'#1a1a1a', border:'1px solid #262626', borderRadius:14,
-          padding:'14px 14px 12px', marginBottom:12 }}>
-          {/* Exercise name + remove button */}
-          <div style={{ display:'flex', gap:8, marginBottom:12 }}>
-            <div style={{ flex:1 }}>
-              <ExerciseInput
-                value={exercise.name}
-                onChange={name => onUpdate({ ...exercise, name })}
-                exerciseNames={exerciseNames}
-                placeholder="Exercise name..."
-              />
+        <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,padding:'14px 14px 12px',marginBottom:12}}>
+          <div style={{display:'flex',gap:8,marginBottom:12}}>
+            <div style={{flex:1}}>
+              <ExerciseInput value={exercise.name}
+                onChange={name=>onUpdate({...exercise,name})}
+                exerciseNames={exerciseNames} placeholder="Exercise name..."/>
             </div>
             <button onClick={onRemove}
-              style={{ background:'#242424', border:'1px solid #2e2e2e', borderRadius:9,
-                color:'#8A8680', cursor:'pointer', padding:'0 10px', display:'flex',
-                alignItems:'center', flexShrink:0, transition:'color 0.15s' }}
-              onMouseEnter={e => e.currentTarget.style.color='#C47070'}
-              onMouseLeave={e => e.currentTarget.style.color='#8A8680'}>
+              style={{background:'#242424',border:'1px solid #2e2e2e',borderRadius:9,
+                color:'#8A8680',cursor:'pointer',padding:'0 10px',display:'flex',
+                alignItems:'center',flexShrink:0,transition:'color 0.15s'}}
+              onMouseEnter={e=>e.currentTarget.style.color='#C47070'}
+              onMouseLeave={e=>e.currentTarget.style.color='#8A8680'}>
               <IconX size={14} color="currentColor"/>
             </button>
           </div>
-
-          {/* Set rows */}
-          {exercise.sets.map((set, i) => (
-            <SetRow key={set.id} setNum={i + 1} set={set}
-              onChange={(f, v) => handleSetChange(set.id, f, v)}
-              onRemove={() => handleRemoveSet(set.id)}
-              autoFocusWeight={set.id === newSetId}
+          {exercise.sets.map((set,i)=>(
+            <SetRow key={set.id} setNum={i+1} set={set}
+              onChange={(f,v)=>onUpdate({...exercise,sets:exercise.sets.map(s=>s.id===set.id?{...s,[f]:v}:s)})}
+              onRemove={()=>{ if(exercise.sets.length>1) onUpdate({...exercise,sets:exercise.sets.filter(s=>s.id!==set.id)}); }}
+              autoFocusWeight={set.id===newSetId}
             />
           ))}
-
-          {/* Add set + volume row */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:6 }}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
             <button onClick={handleAddSet} className="press-scale"
-              style={{ display:'flex', alignItems:'center', gap:6, background:'#242424',
-                border:'1px solid #2e2e2e', borderRadius:8, padding:'7px 12px',
-                color:'#8A8680', fontSize:13, fontWeight:500, cursor:'pointer',
-                transition:'color 0.15s, border-color 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.color='#D4A574'; e.currentTarget.style.borderColor='#D4A574'; }}
-              onMouseLeave={e => { e.currentTarget.style.color='#8A8680'; e.currentTarget.style.borderColor='#2e2e2e'; }}>
-              <IconPlus size={12} color="currentColor"/>
-              Add Set
+              style={{display:'flex',alignItems:'center',gap:6,background:'#242424',
+                border:'1px solid #2e2e2e',borderRadius:8,padding:'7px 12px',
+                color:'#8A8680',fontSize:13,fontWeight:500,cursor:'pointer',
+                transition:'color 0.15s,border-color 0.15s'}}
+              onMouseEnter={e=>{e.currentTarget.style.color='#D4A574';e.currentTarget.style.borderColor='#D4A574';}}
+              onMouseLeave={e=>{e.currentTarget.style.color='#8A8680';e.currentTarget.style.borderColor='#2e2e2e';}}>
+              <IconPlus size={12} color="currentColor"/>Add Set
             </button>
-            {exVolume > 0 && (
-              <span style={{ fontSize:12, color:'#4A4744', fontVariantNumeric:'tabular-nums' }}>
-                {exVolume.toLocaleString()} lbs
-              </span>
-            )}
+            {exVolume>0&&<span style={{fontSize:12,color:'#4A4744',fontVariantNumeric:'tabular-nums'}}>{exVolume.toLocaleString()} lbs</span>}
           </div>
         </div>
       );
@@ -705,124 +1035,84 @@
     function ActiveWorkoutLogger({ activeWorkout, lastWeightMap, exerciseNames, onCancel, onFinish }) {
       const [exercises, setExercises] = useState(activeWorkout.exercises);
       const [notes, setNotes]         = useState('');
-      const elapsed                   = useElapsedMinutes(activeWorkout.startTime);
+      const [saving, setSaving]       = useState(false);
+      const elapsed = useElapsedMinutes(activeWorkout.startTime);
 
       const totalVolume = useMemo(() =>
-        exercises.reduce((sum, ex) =>
-          sum + ex.sets.reduce((s2, s) => s2 + (parseFloat(s.weight)||0) * (parseInt(s.reps)||0), 0), 0),
+        exercises.reduce((sum,ex)=>sum+ex.sets.reduce((s2,s)=>s2+(parseFloat(s.weight)||0)*(parseInt(s.reps)||0),0),0),
         [exercises]);
 
-      const handleUpdateExercise = (updated) =>
-        setExercises(prev => prev.map(ex => ex.id === updated.id ? updated : ex));
-
-      const handleRemoveExercise = (id) =>
-        setExercises(prev => prev.length > 1 ? prev.filter(ex => ex.id !== id) : prev);
-
-      const handleAddExercise = () => {
-        const id = `ex_${uid()}`;
-        setExercises(prev => [...prev, { id, name: '', sets: [{ id: `set_${uid()}`, weight: '', reps: '' }] }]);
-      };
-
-      const handleFinish = () => {
-        const hasContent = exercises.some(ex => ex.name.trim() && ex.sets.some(s => (parseFloat(s.weight)||0) > 0 && (parseInt(s.reps)||0) > 0));
-        if (!hasContent) {
-          alert('Add at least one exercise with a set logged before finishing.');
-          return;
-        }
-        onFinish(exercises, notes);
+      const handleFinish = async () => {
+        const ok = exercises.some(ex=>ex.name.trim()&&ex.sets.some(s=>(parseFloat(s.weight)||0)>0&&(parseInt(s.reps)||0)>0));
+        if (!ok) { alert('Add at least one exercise with a set logged before finishing.'); return; }
+        setSaving(true);
+        try { await onFinish(exercises, notes); } finally { setSaving(false); }
       };
 
       return (
-        <div className="fade-in" style={{ display:'flex', flexDirection:'column', height:'100%' }}>
-
-          {/* ── Header ── */}
-          <div style={{ padding:'14px 20px 12px', borderBottom:'1px solid #1e1e1e', flexShrink:0,
-            display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            <h2 style={{ fontSize:17, fontWeight:700, color:'#F0EDE8' }}>Logging Workout</h2>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              {/* Green pulse dot + elapsed */}
-              <div className="pulse" style={{ width:7, height:7, borderRadius:'50%', background:'#7A9E7E', flexShrink:0 }}/>
-              <span className="tabular" style={{ fontSize:13, color:'#7A9E7E', fontWeight:600 }}>
-                {elapsed}m
-              </span>
+        <div className="fade-in" style={{display:'flex',flexDirection:'column',height:'100%'}}>
+          <div style={{padding:'14px 20px 12px',borderBottom:'1px solid #1e1e1e',flexShrink:0,
+            display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <h2 style={{fontSize:17,fontWeight:700,color:'#F0EDE8'}}>Logging Workout</h2>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <div className="pulse" style={{width:7,height:7,borderRadius:'50%',background:'#7A9E7E',flexShrink:0}}/>
+              <span className="tabular" style={{fontSize:13,color:'#7A9E7E',fontWeight:600}}>{elapsed}m</span>
             </div>
           </div>
-
-          {/* ── Scrollable content ── */}
-          <div style={{ flex:1, overflowY:'auto', padding:'16px 16px 0' }}>
-
-            {exercises.map(ex => (
-              <ExerciseBlock
-                key={ex.id}
-                exercise={ex}
-                onUpdate={handleUpdateExercise}
-                onRemove={() => handleRemoveExercise(ex.id)}
-                exerciseNames={exerciseNames}
-                lastWeightMap={lastWeightMap}
-              />
+          <div style={{flex:1,overflowY:'auto',padding:'16px 16px 0'}}>
+            {exercises.map(ex=>(
+              <ExerciseBlock key={ex.id} exercise={ex}
+                onUpdate={upd=>setExercises(p=>p.map(e=>e.id===upd.id?upd:e))}
+                onRemove={()=>setExercises(p=>p.length>1?p.filter(e=>e.id!==ex.id):p)}
+                exerciseNames={exerciseNames} lastWeightMap={lastWeightMap}/>
             ))}
-
-            {/* + Add Exercise */}
-            <button onClick={handleAddExercise} className="press-scale"
-              style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8,
-                width:'100%', padding:'13px 20px', marginBottom:16,
-                background:'transparent', border:'1.5px dashed #2e2e2e', borderRadius:12,
-                color:'#8A8680', fontSize:14, fontWeight:500, cursor:'pointer',
-                transition:'color 0.15s, border-color 0.15s' }}
-              onMouseEnter={e => { e.currentTarget.style.color='#D4A574'; e.currentTarget.style.borderColor='#D4A574'; }}
-              onMouseLeave={e => { e.currentTarget.style.color='#8A8680'; e.currentTarget.style.borderColor='#2e2e2e'; }}>
-              <IconPlus size={14} color="currentColor"/>
-              Add Exercise
+            <button onClick={()=>setExercises(p=>[...p,{id:`ex_${uid()}`,name:'',sets:[{id:`set_${uid()}`,weight:'',reps:''}]}])}
+              className="press-scale"
+              style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,
+                width:'100%',padding:'13px 20px',marginBottom:16,
+                background:'transparent',border:'1.5px dashed #2e2e2e',borderRadius:12,
+                color:'#8A8680',fontSize:14,fontWeight:500,cursor:'pointer',
+                transition:'color 0.15s,border-color 0.15s'}}
+              onMouseEnter={e=>{e.currentTarget.style.color='#D4A574';e.currentTarget.style.borderColor='#D4A574';}}
+              onMouseLeave={e=>{e.currentTarget.style.color='#8A8680';e.currentTarget.style.borderColor='#2e2e2e';}}>
+              <IconPlus size={14} color="currentColor"/>Add Exercise
             </button>
-
-            {/* Notes */}
-            <div style={{ marginBottom:16 }}>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value.slice(0, 500))}
-                placeholder="Notes (optional)..."
-                maxLength={500}
-                rows={2}
-                style={{ width:'100%', background:'#1a1a1a', border:'1px solid #262626',
-                  borderRadius:12, padding:'12px 14px', color:'#F0EDE8', fontSize:14,
-                  resize:'none', outline:'none', fontFamily:'inherit', lineHeight:1.5,
-                  transition:'border-color 0.15s' }}
-                onFocus={e => e.target.style.borderColor='#3a3a3a'}
-                onBlur={e => e.target.style.borderColor='#262626'}
-              />
+            <div style={{marginBottom:16}}>
+              <textarea value={notes} onChange={e=>setNotes(e.target.value.slice(0,500))}
+                placeholder="Notes (optional)..." maxLength={500} rows={2}
+                style={{width:'100%',background:'#1a1a1a',border:'1px solid #262626',
+                  borderRadius:12,padding:'12px 14px',color:'#F0EDE8',fontSize:14,
+                  resize:'none',outline:'none',fontFamily:'inherit',lineHeight:1.5,transition:'border-color 0.15s'}}
+                onFocus={e=>e.target.style.borderColor='#3a3a3a'}
+                onBlur={e=>e.target.style.borderColor='#262626'}/>
             </div>
-
-            {/* Total volume */}
-            {totalVolume > 0 && (
-              <div style={{ textAlign:'center', marginBottom:24 }}>
-                <div className="tabular" style={{ fontSize:28, fontWeight:700, color:'#F0EDE8', lineHeight:1 }}>
+            {totalVolume>0&&(
+              <div style={{textAlign:'center',marginBottom:24}}>
+                <div className="tabular" style={{fontSize:28,fontWeight:700,color:'#F0EDE8',lineHeight:1}}>
                   {totalVolume.toLocaleString()}
                 </div>
-                <div style={{ fontSize:12, color:'#8A8680', marginTop:4, letterSpacing:'0.06em', textTransform:'uppercase' }}>
+                <div style={{fontSize:12,color:'#8A8680',marginTop:4,letterSpacing:'0.06em',textTransform:'uppercase'}}>
                   lbs total volume
                 </div>
               </div>
             )}
-
-            {/* Spacer for bottom bar */}
-            <div style={{ height:90 }}/>
+            <div style={{height:90}}/>
           </div>
-
-          {/* ── Sticky bottom bar ── */}
-          <div style={{ position:'absolute', bottom:0, left:0, right:0,
-            background:'#0a0a0a', borderTop:'1px solid #1e1e1e',
-            padding:'10px 16px',
-            paddingBottom:'calc(10px + env(safe-area-inset-bottom, 0px))',
-            display:'flex', gap:10 }}>
-            <button onClick={() => { if (window.confirm('Cancel workout? Your progress will be lost.')) { navigator.vibrate && navigator.vibrate(30); onCancel(); } }}
-              style={{ flex:1, padding:'13px 0', borderRadius:11, border:'1px solid #2e2e2e',
-                background:'transparent', color:'#8A8680', fontSize:14, fontWeight:600, cursor:'pointer' }}>
+          <div style={{position:'absolute',bottom:0,left:0,right:0,
+            background:'#0a0a0a',borderTop:'1px solid #1e1e1e',padding:'10px 16px',
+            paddingBottom:'calc(10px + env(safe-area-inset-bottom, 0px))',display:'flex',gap:10}}>
+            <button
+              onClick={()=>{if(window.confirm('Cancel workout? Progress will be lost.')){navigator.vibrate&&navigator.vibrate(30);onCancel();}}}
+              style={{flex:1,padding:'13px 0',borderRadius:11,border:'1px solid #2e2e2e',
+                background:'transparent',color:'#8A8680',fontSize:14,fontWeight:600,cursor:'pointer'}}>
               Cancel
             </button>
-            <button onClick={handleFinish} className="press-scale"
-              style={{ flex:2, padding:'13px 0', borderRadius:11, border:'none',
-                background:'#D4A574', color:'#0f0f0f', fontSize:15, fontWeight:700, cursor:'pointer' }}>
-              Finish Workout
+            <button onClick={handleFinish} disabled={saving} className="press-scale"
+              style={{flex:2,padding:'13px 0',borderRadius:11,border:'none',
+                background: saving ? '#9a7a55' : '#D4A574',
+                color:'#0f0f0f',fontSize:15,fontWeight:700,cursor:saving?'default':'pointer',
+                transition:'background 0.2s'}}>
+              {saving ? 'Saving...' : 'Finish Workout'}
             </button>
           </div>
         </div>
@@ -830,24 +1120,24 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Today home — "Ready to lift?" hero card
+    // Today home
     // ─────────────────────────────────────────────────────────────────────────
 
     function TodayHome({ onOpenPicker }) {
       return (
-        <div className="fade-in" style={{ padding:'28px 20px 0' }}>
-          <div style={{ background:'#1a1a1a', border:'1px solid #262626', borderRadius:18, padding:'28px 24px', textAlign:'center' }}>
-            <div style={{ marginBottom:16, display:'flex', justifyContent:'center' }}>
+        <div className="fade-in" style={{padding:'28px 20px 0'}}>
+          <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:18,padding:'28px 24px',textAlign:'center'}}>
+            <div style={{marginBottom:16,display:'flex',justifyContent:'center'}}>
               <IconDumbbell size={40} color="#D4A574"/>
             </div>
-            <h3 style={{ fontSize:20, fontWeight:700, color:'#F0EDE8', marginBottom:8 }}>Ready to lift?</h3>
-            <p style={{ fontSize:14, color:'#8A8680', marginBottom:24, lineHeight:1.5 }}>
+            <h3 style={{fontSize:20,fontWeight:700,color:'#F0EDE8',marginBottom:8}}>Ready to lift?</h3>
+            <p style={{fontSize:14,color:'#8A8680',marginBottom:24,lineHeight:1.5}}>
               Track your exercises, sets, and reps.
             </p>
-            <button onClick={() => { navigator.vibrate && navigator.vibrate(20); onOpenPicker(); }}
+            <button onClick={()=>{navigator.vibrate&&navigator.vibrate(20);onOpenPicker();}}
               className="press-scale"
-              style={{ width:'100%', padding:'14px 20px', borderRadius:12, border:'none',
-                background:'#D4A574', color:'#0f0f0f', fontSize:15, fontWeight:700, cursor:'pointer' }}>
+              style={{width:'100%',padding:'14px 20px',borderRadius:12,border:'none',
+                background:'#D4A574',color:'#0f0f0f',fontSize:15,fontWeight:700,cursor:'pointer'}}>
               Start Workout
             </button>
           </div>
@@ -856,74 +1146,228 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // TodayTab — orchestrates home / picker / active logger
+    // TodayTab — state machine
     // ─────────────────────────────────────────────────────────────────────────
 
-    function TodayTab({ exerciseNames, workoutsData, activeWorkout, lastWeightMap, onStartWorkout, onCancelWorkout, onFinishWorkout }) {
-      const [step, setStep]               = useState('home');
-      const [selectedSplit, setSelectedSplit] = useState(null);
-      const [pickerExercises, setPickerExercises] = useState([]);
+    function TodayTab({ exerciseNames, workoutsData, activeWorkout, lastWeightMap,
+                        onStartWorkout, onCancelWorkout, onFinishWorkout,
+                        todayWorkout, newPRs, onDismissPRs }) {
+      const [step, setStep]           = useState('home');
+      const [selSplit, setSelSplit]    = useState(null);
+      const [pickerEx, setPickerEx]   = useState([]);
+      const freq = useMemo(() => buildExerciseFrequency(workoutsData), [workoutsData]);
 
-      const frequency = useMemo(() => buildExerciseFrequency(workoutsData), [workoutsData]);
-
-      // Active logger takes over
       if (activeWorkout) {
-        return (
-          <ActiveWorkoutLogger
-            activeWorkout={activeWorkout}
-            lastWeightMap={lastWeightMap}
-            exerciseNames={exerciseNames}
-            onCancel={onCancelWorkout}
-            onFinish={onFinishWorkout}
-          />
-        );
+        return <ActiveWorkoutLogger activeWorkout={activeWorkout} lastWeightMap={lastWeightMap}
+          exerciseNames={exerciseNames} onCancel={onCancelWorkout} onFinish={onFinishWorkout}/>;
       }
 
       const handleSelectSplit = (split) => {
-        setSelectedSplit(split);
-        if (split.id === 'free') {
-          onStartWorkout([], split);
-        } else {
-          setPickerExercises(getSuggestions(split, frequency));
-          setStep('pick_exercises');
-        }
+        setSelSplit(split);
+        if (split.id === 'free') { onStartWorkout([], split); }
+        else { setPickerEx(getSuggestions(split, freq)); setStep('pick_exercises'); }
       };
-
-      const handleCancel = () => { setStep('home'); setSelectedSplit(null); setPickerExercises([]); };
+      const resetPicker = () => { setStep('home'); setSelSplit(null); setPickerEx([]); };
 
       if (step === 'pick_split') {
-        return <SplitPickerStep1 onSelect={handleSelectSplit} onCancel={handleCancel}/>;
+        return <SplitPickerStep1 onSelect={handleSelectSplit} onCancel={resetPicker}/>;
       }
-
-      if (step === 'pick_exercises' && selectedSplit) {
+      if (step === 'pick_exercises' && selSplit) {
         return (
           <SplitPickerStep2
-            split={selectedSplit}
-            exercises={pickerExercises}
-            onToggle={i => setPickerExercises(prev => prev.map((ex, j) => j === i ? { ...ex, selected: !ex.selected } : ex))}
-            onBack={() => setStep('pick_split')}
-            onCancel={handleCancel}
-            onStart={() => onStartWorkout(pickerExercises.filter(e => e.selected), selectedSplit)}
+            split={selSplit} exercises={pickerEx}
+            onToggle={i=>setPickerEx(p=>p.map((e,j)=>j===i?{...e,selected:!e.selected}:e))}
+            onBack={()=>setStep('pick_split')}
+            onCancel={resetPicker}
+            onStart={()=>onStartWorkout(pickerEx.filter(e=>e.selected),selSplit)}
           />
         );
       }
 
-      return <TodayHome onOpenPicker={() => setStep('pick_split')}/>;
+      if (todayWorkout) {
+        return <TodaySummary workoutKey={todayKey()} workout={todayWorkout}
+          newPRs={newPRs} onDismissPRs={onDismissPRs}
+          onLogAnother={()=>setStep('pick_split')}/>;
+      }
+
+      return <TodayHome onOpenPicker={()=>setStep('pick_split')}/>;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // History + You tabs (placeholder)
+    // History tab — sub-tabs: History | Progress | PRs
     // ─────────────────────────────────────────────────────────────────────────
 
-    function HistoryTab() {
-      return <div className="fade-in" style={{ padding:'28px 20px' }}>
-        <h2 style={{ fontSize:22, fontWeight:700, color:'#F0EDE8' }}>History</h2>
-      </div>;
-    }
+    function HistoryTab({ workoutsData, personalRecordsData }) {
+      const [subTab, setSubTab]         = useState('history');
+      const [selEx, setSelEx]           = useState('');
+      const [pickerOpen, setPickerOpen] = useState(false);
 
+      const historicExercises = useMemo(() => {
+        if (!workoutsData) return [];
+        const exMap = {};
+        Object.values(workoutsData).forEach(w => {
+          if (!w.exercises) return;
+          Object.values(w.exercises).forEach(ex => {
+            if (ex.name) exMap[ex.name] = (exMap[ex.name]||0) + 1;
+          });
+        });
+        return Object.entries(exMap).sort(([a],[b]) => a.localeCompare(b))
+          .map(([name,count]) => ({ name, count }));
+      }, [workoutsData]);
+
+      const exHistory  = useMemo(() => computeExerciseHistory(workoutsData, selEx), [workoutsData, selEx]);
+      const weeklyData = useMemo(() => computeWeeklyVolume(workoutsData), [workoutsData]);
+
+      const sortedWorkouts = useMemo(() => {
+        if (!workoutsData) return [];
+        return Object.entries(workoutsData).sort(([a],[b]) => b.localeCompare(a));
+      }, [workoutsData]);
+
+      const SUB_TABS = [{id:'history',label:'History'},{id:'progress',label:'Progress'},{id:'prs',label:'PRs'}];
+
+      return (
+        <div className="fade-in">
+          {/* Sub-tab pills */}
+          <div style={{padding:'16px 20px 0',borderBottom:'1px solid #1a1a1a'}}>
+            <div style={{display:'flex',gap:6,paddingBottom:12}}>
+              {SUB_TABS.map(t => (
+                <button key={t.id} onClick={() => setSubTab(t.id)} style={{
+                  padding:'7px 16px',borderRadius:20,border:'none',cursor:'pointer',
+                  background: subTab===t.id ? 'rgba(212,165,116,0.15)' : 'transparent',
+                  color: subTab===t.id ? '#D4A574' : '#4A4744',
+                  fontSize:13, fontWeight: subTab===t.id ? 600 : 400, transition:'all 0.15s',
+                }}>{t.label}</button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{padding:'16px 20px'}}>
+
+            {/* ── History sub-tab ── */}
+            {subTab === 'history' && (
+              sortedWorkouts.length === 0 ? (
+                <div style={{textAlign:'center',padding:'60px 0'}}>
+                  <IconDumbbell size={36} color="#2a2a2a"/>
+                  <p style={{fontSize:14,color:'#4A4744',marginTop:12,lineHeight:1.6}}>
+                    No workouts logged yet —<br/>let's change that.
+                  </p>
+                </div>
+              ) : (
+                sortedWorkouts.map(([key, w]) => <WorkoutCard key={key} dateKey={key} workout={w}/>)
+              )
+            )}
+
+            {/* ── Progress sub-tab ── */}
+            {subTab === 'progress' && (
+              <div>
+                {/* Exercise picker */}
+                <div style={{marginBottom:16}}>
+                  <button onClick={() => setPickerOpen(o => !o)} style={{
+                    width:'100%',display:'flex',alignItems:'center',justifyContent:'space-between',
+                    padding:'12px 16px',background:'#1a1a1a',border:'1px solid #262626',
+                    borderRadius:12,cursor:'pointer',transition:'border-color 0.15s',
+                    color: selEx ? '#F0EDE8' : '#8A8680', fontSize:14, fontWeight: selEx ? 500 : 400,
+                  }}
+                  onMouseEnter={e=>e.currentTarget.style.borderColor='#3a3a3a'}
+                  onMouseLeave={e=>e.currentTarget.style.borderColor='#262626'}>
+                    <span>{selEx || 'Select exercise...'}</span>
+                    <div style={{transition:'transform 0.2s',transform:pickerOpen?'rotate(180deg)':'rotate(0)'}}>
+                      <IconChevronDown size={14} color="#4A4744"/>
+                    </div>
+                  </button>
+                  {pickerOpen && (
+                    <div style={{marginTop:4,background:'#1e1e1e',border:'1px solid #2e2e2e',
+                      borderRadius:12,overflow:'hidden',maxHeight:220,overflowY:'auto'}}>
+                      {historicExercises.length === 0 ? (
+                        <div style={{padding:'14px 16px',fontSize:13,color:'#4A4744'}}>No exercise history yet.</div>
+                      ) : historicExercises.map(({name,count}) => (
+                        <button key={name} onClick={() => { setSelEx(name); setPickerOpen(false); }} style={{
+                          display:'flex',alignItems:'center',justifyContent:'space-between',
+                          width:'100%',padding:'11px 16px',background:'none',border:'none',
+                          borderBottom:'1px solid #262626',cursor:'pointer',textAlign:'left',
+                        }}
+                        onMouseEnter={e=>e.currentTarget.style.background='#2a2a2a'}
+                        onMouseLeave={e=>e.currentTarget.style.background='none'}>
+                          <span style={{fontSize:14,color:'#F0EDE8'}}>{name}</span>
+                          <span style={{fontSize:12,color:'#4A4744'}}>{count} {count===1?'session':'sessions'}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {selEx ? (
+                  <div>
+                    {/* Progression chart */}
+                    <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,
+                      padding:'14px 12px 10px',marginBottom:14}}>
+                      <div style={{fontSize:12,color:'#8A8680',marginBottom:8,paddingLeft:2}}>
+                        Est. 1RM — <span style={{color:'#D4A574',fontWeight:600}}>{selEx}</span>
+                      </div>
+                      <ProgressionChart data={exHistory}/>
+                    </div>
+                    {/* Recent entries table */}
+                    {exHistory.length > 0 && (
+                      <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,
+                        overflow:'hidden',marginBottom:14}}>
+                        <div style={{padding:'10px 16px',borderBottom:'1px solid #262626'}}>
+                          <span style={{fontSize:11,color:'#4A4744',fontWeight:600,
+                            letterSpacing:'0.06em',textTransform:'uppercase'}}>Recent sessions</span>
+                        </div>
+                        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',
+                          padding:'8px 16px 6px',gap:0,borderBottom:'1px solid #1e1e1e'}}>
+                          {['Date','Best Set','Est. 1RM'].map(h => (
+                            <span key={h} style={{fontSize:11,color:'#4A4744',fontWeight:500}}>{h}</span>
+                          ))}
+                        </div>
+                        {[...exHistory].reverse().slice(0,5).map((entry,i) => (
+                          <div key={i} style={{display:'grid',gridTemplateColumns:'1fr 1fr auto',
+                            padding:'9px 16px',borderTop:i?'1px solid #1e1e1e':undefined,alignItems:'center'}}>
+                            <span style={{fontSize:13,color:'#8A8680'}}>
+                              {new Date(entry.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
+                            </span>
+                            <span className="tabular" style={{fontSize:13,color:'#F0EDE8',fontWeight:500}}>
+                              {entry.weight} × {entry.reps}
+                            </span>
+                            <span className="tabular" style={{fontSize:13,color:'#D4A574',fontWeight:600,
+                              textAlign:'right'}}>{entry.est1rm}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{textAlign:'center',padding:'28px 0 20px',color:'#4A4744',fontSize:13,lineHeight:1.6}}>
+                    Pick an exercise to see<br/>your progress over time.
+                  </div>
+                )}
+
+                {/* Weekly volume chart — always shown */}
+                <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,
+                  padding:'14px 12px 8px'}}>
+                  <div style={{fontSize:13,fontWeight:600,color:'#F0EDE8',marginBottom:10,paddingLeft:2}}>
+                    Weekly Volume
+                  </div>
+                  <WeeklyVolumeChart weeklyData={weeklyData}/>
+                </div>
+              </div>
+            )}
+
+            {/* ── PRs sub-tab (Phase 3b) ── */}
+            {subTab === 'prs' && (
+              <div style={{textAlign:'center',padding:'60px 0'}}>
+                <IconStar size={32} color="#2a2a2a"/>
+                <p style={{fontSize:14,color:'#4A4744',marginTop:12}}>Personal records board<br/>coming in the next update.</p>
+              </div>
+            )}
+
+          </div>
+        </div>
+      );
+    }
     function YouTab() {
-      return <div className="fade-in" style={{ padding:'28px 20px' }}>
-        <h2 style={{ fontSize:22, fontWeight:700, color:'#F0EDE8' }}>You</h2>
+      return <div className="fade-in" style={{padding:'28px 20px'}}>
+        <h2 style={{fontSize:22,fontWeight:700,color:'#F0EDE8'}}>You</h2>
       </div>;
     }
 
@@ -932,31 +1376,29 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     const TABS = [
-      { id:'today',   label:'Today',   Icon:IconToday   },
-      { id:'history', label:'History', Icon:IconHistory },
-      { id:'you',     label:'You',     Icon:IconYou     },
+      {id:'today',label:'Today',Icon:IconToday},
+      {id:'history',label:'History',Icon:IconHistory},
+      {id:'you',label:'You',Icon:IconYou},
     ];
 
     function BottomNav({ activeTab, onTabPress }) {
       return (
         <nav role="navigation" aria-label="Main navigation" style={{
-          position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)',
-          width:'100%', maxWidth:480, background:'#111', borderTop:'1px solid #1e1e1e',
-          display:'flex', paddingBottom:'env(safe-area-inset-bottom, 0px)', zIndex:50 }}>
-          {TABS.map(({ id, label, Icon }) => {
-            const active = activeTab === id;
+          position:'fixed',bottom:0,left:'50%',transform:'translateX(-50%)',
+          width:'100%',maxWidth:480,background:'#111',borderTop:'1px solid #1e1e1e',
+          display:'flex',paddingBottom:'env(safe-area-inset-bottom, 0px)',zIndex:50}}>
+          {TABS.map(({id,label,Icon})=>{
+            const a = activeTab===id;
             return (
-              <button key={id} onClick={() => onTabPress(id)}
-                aria-label={label} aria-current={active ? 'page' : undefined}
-                style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center',
-                  justifyContent:'center', gap:3, paddingTop:10, paddingBottom:10,
-                  background:'none', border:'none', cursor:'pointer',
-                  color: active ? '#D4A574' : '#4A4744', transition:'color 0.2s', userSelect:'none' }}>
-                <Icon size={22} color={active ? '#D4A574' : '#4A4744'}/>
-                <span style={{ fontSize:10, fontWeight: active ? 600 : 400, letterSpacing:'0.03em', lineHeight:1 }}>
-                  {label}
-                </span>
-                <div style={{ width:4, height:4, borderRadius:'50%', background: active ? '#D4A574' : 'transparent', transition:'background 0.2s' }}/>
+              <button key={id} onClick={()=>onTabPress(id)}
+                aria-label={label} aria-current={a?'page':undefined}
+                style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',
+                  justifyContent:'center',gap:3,paddingTop:10,paddingBottom:10,
+                  background:'none',border:'none',cursor:'pointer',
+                  color:a?'#D4A574':'#4A4744',transition:'color 0.2s',userSelect:'none'}}>
+                <Icon size={22} color={a?'#D4A574':'#4A4744'}/>
+                <span style={{fontSize:10,fontWeight:a?600:400,letterSpacing:'0.03em',lineHeight:1}}>{label}</span>
+                <div style={{width:4,height:4,borderRadius:'50%',background:a?'#D4A574':'transparent',transition:'background 0.2s'}}/>
               </button>
             );
           })}
@@ -972,9 +1414,11 @@
       const [activeTab, setActiveTab]       = useState('today');
       const [seeding, setSeeding]           = useState(false);
       const [activeWorkout, setActiveWorkout] = useState(null);
+      const [newPRs, setNewPRs]             = useState([]);
 
-      const [exerciseNamesData] = useFirebase('drea/exerciseNames');
-      const [workoutsData]      = useFirebase('drea/workouts');
+      const [exerciseNamesData]    = useFirebase('drea/exerciseNames');
+      const [workoutsData]         = useFirebase('drea/workouts');
+      const [personalRecordsData]  = useFirebase('drea/personalRecords');
 
       const exerciseNames = useMemo(() => {
         if (!exerciseNamesData) return ALL_EXERCISE_NAMES;
@@ -982,60 +1426,59 @@
       }, [exerciseNamesData]);
 
       const lastWeightMap = useMemo(() => buildLastWeightMap(workoutsData), [workoutsData]);
+      const todayWorkout  = workoutsData ? workoutsData[todayKey()] : null;
 
       useEffect(() => {
         (async () => {
           const snap = await db.ref('drea/exerciseNames').once('value');
-          if (!snap.val()) {
-            setSeeding(true);
-            await seedExerciseNames();
-            setSeeding(false);
-          }
+          if (!snap.val()) { setSeeding(true); await seedExerciseNames(); setSeeding(false); }
         })();
       }, []);
 
-      const handleTabPress = (id) => { navigator.vibrate && navigator.vibrate(10); setActiveTab(id); };
+      const handleTabPress = (id) => { navigator.vibrate&&navigator.vibrate(10); setActiveTab(id); };
 
-      const handleStartWorkout = (pickerExercises, split) => {
-        const exercises = pickerExercises.length > 0
-          ? pickerExercises.map((ex, i) => ({
-              id: `ex_${uid()}`,
-              name: ex.name,
-              sets: [{ id: `set_${uid()}`, weight: lastWeightMap[ex.name] ? String(lastWeightMap[ex.name]) : '', reps: '' }],
+      const handleStartWorkout = (picked, split) => {
+        const exercises = picked.length > 0
+          ? picked.map(ex => ({
+              id: `ex_${uid()}`, name: ex.name,
+              sets: [{ id:`set_${uid()}`, weight: lastWeightMap[ex.name] ? String(lastWeightMap[ex.name]) : '', reps:'' }],
             }))
-          : [{ id: `ex_${uid()}`, name: '', sets: [{ id: `set_${uid()}`, weight: '', reps: '' }] }];
-
+          : [{ id:`ex_${uid()}`, name:'', sets:[{id:`set_${uid()}`,weight:'',reps:''}] }];
         setActiveWorkout({ exercises, split, startTime: Date.now() });
         setActiveTab('today');
       };
 
       const handleCancelWorkout = () => setActiveWorkout(null);
 
-      // Phase 2c will implement full save + PR detection; stub for now
-      const handleFinishWorkout = (exercises, notes) => {
-        // TODO Phase 2c: save to Firebase
+      const handleFinishWorkout = async (exercises, notes) => {
+        navigator.vibrate && navigator.vibrate(50);
+        const { newPRs: prs } = await saveWorkout(exercises, notes, activeWorkout.startTime, activeWorkout.split);
         setActiveWorkout(null);
+        if (prs.length > 0) {
+          navigator.vibrate && navigator.vibrate([50, 50, 100]);
+          setNewPRs(prs);
+        }
       };
 
       if (seeding) return <SeedingScreen/>;
 
       return (
-        <div style={{ background:'#0f0f0f', height:'100dvh', display:'flex', flexDirection:'column', alignItems:'center' }}>
-          <div style={{ width:'100%', maxWidth:480, flex:1, display:'flex', flexDirection:'column', overflow:'hidden', position:'relative' }}>
-            <main role="main" style={{ flex:1, overflowY:'auto', paddingBottom:'calc(64px + env(safe-area-inset-bottom, 0px))', height:'100%' }}>
-              {activeTab === 'today' && (
+        <div style={{background:'#0f0f0f',height:'100dvh',display:'flex',flexDirection:'column',alignItems:'center'}}>
+          <div style={{width:'100%',maxWidth:480,flex:1,display:'flex',flexDirection:'column',overflow:'hidden',position:'relative'}}>
+            <main role="main" style={{flex:1,overflowY:'auto',paddingBottom:'calc(64px + env(safe-area-inset-bottom, 0px))',height:'100%'}}>
+              {activeTab==='today'&&(
                 <TodayTab key="today"
-                  exerciseNames={exerciseNames}
-                  workoutsData={workoutsData}
-                  activeWorkout={activeWorkout}
-                  lastWeightMap={lastWeightMap}
+                  exerciseNames={exerciseNames} workoutsData={workoutsData}
+                  activeWorkout={activeWorkout} lastWeightMap={lastWeightMap}
                   onStartWorkout={handleStartWorkout}
                   onCancelWorkout={handleCancelWorkout}
                   onFinishWorkout={handleFinishWorkout}
+                  todayWorkout={todayWorkout}
+                  newPRs={newPRs} onDismissPRs={()=>setNewPRs([])}
                 />
               )}
-              {activeTab === 'history' && <HistoryTab key="history"/>}
-              {activeTab === 'you'     && <YouTab     key="you"/>}
+              {activeTab==='history'&&<HistoryTab key="history" workoutsData={workoutsData} personalRecordsData={personalRecordsData}/>}
+              {activeTab==='you'&&<YouTab key="you"/>}
             </main>
             <BottomNav activeTab={activeTab} onTabPress={handleTabPress}/>
           </div>
@@ -1044,11 +1487,11 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Service worker + mount
+    // SW + mount
     // ─────────────────────────────────────────────────────────────────────────
 
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+      window.addEventListener('load', ()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
     }
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App/>);

@@ -206,7 +206,7 @@ Build the full workout logging experience.
 
 ---
 
-## PHASE 2c — Finish Workout, PR Detection & Today Summary ⬜
+## PHASE 2c — Finish Workout, PR Detection & Today Summary ✅
 Complete the workout lifecycle.
 
 **finishWorkout function:**
@@ -253,7 +253,7 @@ Complete the workout lifecycle.
 
 ---
 
-## PHASE 3a — Workout History & Progression Charts ⬜
+## PHASE 3a — Workout History & Progression Charts ✅
 Build the History tab.
 
 **Workout History list:**
