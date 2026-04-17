@@ -380,7 +380,7 @@ Build the exercise database manager on the You tab.
 
 ---
 
-## PHASE 5a — Rest Timer ⬜
+## PHASE 5a — Rest Timer ✅
 Build the minimal rest timer for use during active workouts.
 
 **Rest timer component:**
