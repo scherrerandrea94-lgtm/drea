@@ -622,6 +622,29 @@ Quality-of-life utilities and training intelligence.
 
 ---
 
+## PHASE 10 — Workout Templates & Superset Mode ✅
+Reusability and advanced logging patterns.
+
+**Workout Templates:**
+- "Save as Template" button in TodaySummary — opens modal with name input + exercise preview
+- Templates saved to Firebase at `drea/templates/{key}`: { name, split, exercises[], createdAt }
+- Quick-start section in SplitPickerStep1 — if templates exist, show them above the split cards
+- Tapping a template starts the workout directly (skips exercise picker)
+- Templates section in YouTab: list all templates with split label, exercise count, "Use" + delete buttons
+- `handleSaveTemplate` / `handleDeleteTemplate` in App; `templatesData` Firebase listener
+
+**Superset Mode:**
+- Small "SS" link button rendered between consecutive exercise blocks in ActiveWorkoutLogger
+- Clicking links two exercises into a superset (amber left-border accent + "SS" badge on both)
+- Clicking again unlinks them
+- Superset state managed locally in ActiveWorkoutLogger (`supersets` Set of paired IDs)
+- On save: `supersetGroup` field added to paired exercises in Firebase
+- WorkoutCard and TodaySummary show "SS" badge next to exercises in a superset
+
+**Commit and push.**
+
+---
+
 ## POST-LAUNCH IDEAS (Future Sessions)
 - Apple Health / Google Fit integration for heart rate
 - Spotify integration: track what Andrea listens to during workouts

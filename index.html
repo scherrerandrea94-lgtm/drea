@@ -1073,11 +1073,138 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // SaveTemplateModal — save finished workout as reusable template
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function SaveTemplateModal({ workout, allSplits, onSave, onCancel }) {
+      const splits = allSplits || SPLITS;
+      const splitLabel = splits.find(s => s.id === workout.split)?.label || 'Workout';
+      const [name, setName] = useState(splitLabel);
+      const exercises = workout.exercises
+        ? Object.keys(workout.exercises).sort().map(k => workout.exercises[k])
+        : [];
+      const inputRef = useRef(null);
+      useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
+      return (
+        <div style={{position:'fixed',inset:0,zIndex:90,background:'rgba(0,0,0,0.7)',
+          display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+          <div className="slide-up" style={{width:'100%',maxWidth:480,
+            background:'#111',borderRadius:'20px 20px 0 0',borderTop:'1px solid #222',
+            paddingBottom:'calc(20px + env(safe-area-inset-bottom, 0px))'}}>
+            <div style={{padding:'10px 20px 14px',borderBottom:'1px solid #1e1e1e'}}>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
+                <div style={{width:36,height:4,borderRadius:2,background:'#2e2e2e'}}/>
+              </div>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <h2 style={{fontSize:16,fontWeight:700,color:'#F0EDE8'}}>Save as Template</h2>
+                <button onClick={onCancel} aria-label="Cancel"
+                  style={{background:'none',border:'none',cursor:'pointer',color:'#8A8680',padding:4}}>
+                  <IconX size={16} color="currentColor"/>
+                </button>
+              </div>
+            </div>
+            <div style={{padding:'18px 20px'}}>
+              <input ref={inputRef} type="text" value={name}
+                onChange={e => setName(e.target.value.slice(0,40))}
+                placeholder="Template name..."
+                style={{width:'100%',background:'#1a1a1a',border:'1px solid #2e2e2e',borderRadius:11,
+                  padding:'12px 16px',color:'#F0EDE8',fontSize:16,fontWeight:600,
+                  outline:'none',fontFamily:'inherit',transition:'border-color 0.15s',boxSizing:'border-box'}}
+                onFocus={e=>e.target.style.borderColor='#D4A574'}
+                onBlur={e=>e.target.style.borderColor='#2e2e2e'}
+              />
+              <div style={{marginTop:14,marginBottom:20}}>
+                <div style={{fontSize:11,fontWeight:600,color:'#4A4744',letterSpacing:'0.07em',
+                  textTransform:'uppercase',marginBottom:8}}>Exercises ({exercises.length})</div>
+                {exercises.slice(0,6).map((ex,i) => (
+                  <div key={i} style={{fontSize:13,color:'#8A8680',lineHeight:1.8}}>· {ex.name}</div>
+                ))}
+                {exercises.length > 6 && (
+                  <div style={{fontSize:12,color:'#4A4744',marginTop:2}}>+{exercises.length-6} more</div>
+                )}
+              </div>
+              <button onClick={() => onSave(name.trim() || splitLabel, workout.split, exercises.map(e=>e.name))}
+                disabled={!name.trim()}
+                className="press-scale"
+                style={{width:'100%',padding:'14px 0',borderRadius:12,border:'none',
+                  background: name.trim() ? '#D4A574' : '#2e2e2e',
+                  color: name.trim() ? '#0f0f0f' : '#4A4744',
+                  fontSize:15,fontWeight:700,cursor:name.trim()?'pointer':'default',
+                  transition:'background 0.2s, color 0.2s'}}>
+                Save Template
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TemplatesSection — list of saved templates for YouTab + quick-start
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function TemplatesSection({ allTemplates, allSplits, onUseTemplate, onDeleteTemplate }) {
+      const splits = allSplits || SPLITS;
+      if (!allTemplates || allTemplates.length === 0) {
+        return (
+          <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,
+            padding:'20px 16px',textAlign:'center'}}>
+            <div style={{fontSize:13,color:'#4A4744'}}>No templates saved yet.</div>
+            <div style={{fontSize:12,color:'#3a3a3a',marginTop:4,lineHeight:1.5}}>
+              Finish a workout and tap "Save Template" to reuse it later.
+            </div>
+          </div>
+        );
+      }
+      return (
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {allTemplates.map(t => {
+            const splitLabel = splits.find(s=>s.id===t.split)?.label || 'Workout';
+            const exNames = t.exercises || [];
+            return (
+              <div key={t.fbKey} style={{background:'#1a1a1a',border:'1px solid #262626',
+                borderRadius:14,padding:'14px 16px',display:'flex',alignItems:'center',gap:12}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:600,color:'#F0EDE8',marginBottom:2}}>{t.name}</div>
+                  <div style={{fontSize:12,color:'#8A8680'}}>{splitLabel} · {exNames.length} exercise{exNames.length!==1?'s':''}</div>
+                  <div style={{fontSize:11,color:'#4A4744',marginTop:3,
+                    whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>
+                    {exNames.slice(0,3).join(' · ')}{exNames.length>3?` +${exNames.length-3}`:''}
+                  </div>
+                </div>
+                {onUseTemplate && (
+                  <button onClick={()=>onUseTemplate(t)} className="press-scale"
+                    style={{background:'rgba(212,165,116,0.12)',border:'1px solid rgba(212,165,116,0.3)',
+                      borderRadius:9,padding:'8px 14px',color:'#D4A574',fontSize:13,fontWeight:600,
+                      cursor:'pointer',flexShrink:0,whiteSpace:'nowrap'}}>
+                    Use
+                  </button>
+                )}
+                {onDeleteTemplate && (
+                  <button onClick={()=>{if(window.confirm(`Delete "${t.name}"?`))onDeleteTemplate(t.fbKey);}}
+                    aria-label={`Delete template ${t.name}`}
+                    style={{background:'none',border:'none',cursor:'pointer',
+                      color:'#3a3a3a',padding:4,flexShrink:0,transition:'color 0.15s'}}
+                    onMouseEnter={e=>e.currentTarget.style.color='#C47070'}
+                    onMouseLeave={e=>e.currentTarget.style.color='#3a3a3a'}>
+                    <IconX size={14} color="currentColor"/>
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Today Summary — post-workout card
     // ─────────────────────────────────────────────────────────────────────────
 
-    function TodaySummary({ workoutKey, workout, newPRs, onDismissPRs, onLogAnother, newMilestone, onDismissMilestone, allSplits }) {
+    function TodaySummary({ workoutKey, workout, newPRs, onDismissPRs, onLogAnother, newMilestone, onDismissMilestone, allSplits, onSaveTemplate }) {
       const [expanded, setExpanded] = useState(false);
+      const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+      const [templateSaved, setTemplateSaved] = useState(false);
 
       const exercises = workout.exercises
         ? Object.keys(workout.exercises).sort().map(k => workout.exercises[k])
@@ -1136,10 +1263,16 @@ Be encouraging, specific, and practical. Don't pad responses.`;
               <div style={{ borderTop:'1px solid #262626', padding:'12px 18px 16px' }}>
                 {exercises.map((ex, i) => {
                   const sets = ex.sets ? Object.keys(ex.sets).sort().map(k => ex.sets[k]) : [];
+                  const isSS = ex.supersetGroup != null;
                   return (
-                    <div key={i} style={{ marginBottom: i < exercises.length-1 ? 14 : 0 }}>
-                      <div style={{ fontSize:13, fontWeight:600, color:'#D4A574', marginBottom:4 }}>
-                        {ex.name}
+                    <div key={i} style={{ marginBottom: i < exercises.length-1 ? 14 : 0,
+                      paddingLeft: isSS ? 8 : 0,
+                      borderLeft: isSS ? '2px solid rgba(212,165,116,0.35)' : 'none' }}>
+                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                        <span style={{ fontSize:13, fontWeight:600, color:'#D4A574' }}>{ex.name}</span>
+                        {isSS && <span style={{fontSize:9,fontWeight:700,color:'#D4A574',
+                          background:'rgba(212,165,116,0.12)',border:'1px solid rgba(212,165,116,0.25)',
+                          borderRadius:4,padding:'1px 5px',letterSpacing:'0.04em'}}>SS</span>}
                       </div>
                       {sets.map((s, j) => (
                         <div key={j} style={{ fontSize:12, color:'#8A8680', paddingLeft:8,
@@ -1161,24 +1294,52 @@ Be encouraging, specific, and practical. Don't pad responses.`;
           </div>
 
           {/* Action buttons */}
-          <div style={{display:'flex',gap:10}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
             <button onClick={() => shareWorkoutCard(workout, workoutKey, splitLabel)}
               className="press-scale"
-              style={{flex:1,padding:'12px 0',borderRadius:11,border:'1px solid #2e2e2e',
-                background:'transparent',color:'#8A8680',fontSize:14,fontWeight:600,cursor:'pointer',
-                display:'flex',alignItems:'center',justifyContent:'center',gap:7}}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              style={{flex:'1 1 auto',padding:'12px 0',borderRadius:11,border:'1px solid #2e2e2e',
+                background:'transparent',color:'#8A8680',fontSize:13,fontWeight:600,cursor:'pointer',
+                display:'flex',alignItems:'center',justifyContent:'center',gap:6,minWidth:70}}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
                 <polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
               </svg>
               Share
             </button>
+            {onSaveTemplate && (
+              <button onClick={() => setShowSaveTemplate(true)} className="press-scale"
+                disabled={templateSaved}
+                style={{flex:'1 1 auto',padding:'12px 0',borderRadius:11,
+                  border:`1px solid ${templateSaved?'rgba(122,158,126,0.3)':'#2e2e2e'}`,
+                  background:'transparent',
+                  color:templateSaved?'#7A9E7E':'#8A8680',
+                  fontSize:13,fontWeight:600,cursor:templateSaved?'default':'pointer',
+                  display:'flex',alignItems:'center',justifyContent:'center',gap:6,minWidth:80}}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                  <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                </svg>
+                {templateSaved ? 'Saved!' : 'Template'}
+              </button>
+            )}
             <button onClick={onLogAnother} className="press-scale"
-              style={{flex:2,padding:'12px 0',borderRadius:11,border:'1px solid #2e2e2e',
-                background:'transparent',color:'#8A8680',fontSize:14,fontWeight:600,cursor:'pointer'}}>
-              Log Another Workout
+              style={{flex:'2 1 auto',padding:'12px 0',borderRadius:11,border:'1px solid #2e2e2e',
+                background:'transparent',color:'#8A8680',fontSize:13,fontWeight:600,cursor:'pointer',minWidth:120}}>
+              Log Another
             </button>
           </div>
+
+          {showSaveTemplate && (
+            <SaveTemplateModal
+              workout={workout} allSplits={allSplits}
+              onSave={(name, split, exNames) => {
+                onSaveTemplate(name, split, exNames);
+                setShowSaveTemplate(false);
+                setTemplateSaved(true);
+              }}
+              onCancel={() => setShowSaveTemplate(false)}
+            />
+          )}
         </div>
       );
     }
@@ -1312,9 +1473,17 @@ Be encouraging, specific, and practical. Don't pad responses.`;
             <div style={{borderTop:'1px solid #262626',padding:'12px 16px 14px'}}>
               {exs.map((ex,i) => {
                 const sets = ex.sets ? Object.keys(ex.sets).sort().map(k => ex.sets[k]) : [];
+                const isSS = ex.supersetGroup != null;
                 return (
-                  <div key={i} style={{marginBottom:i<exs.length-1?12:0}}>
-                    <div style={{fontSize:13,fontWeight:600,color:'#D4A574',marginBottom:3}}>{ex.name}</div>
+                  <div key={i} style={{marginBottom:i<exs.length-1?12:0,
+                    paddingLeft: isSS ? 8 : 0,
+                    borderLeft: isSS ? '2px solid rgba(212,165,116,0.35)' : 'none'}}>
+                    <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
+                      <span style={{fontSize:13,fontWeight:600,color:'#D4A574'}}>{ex.name}</span>
+                      {isSS && <span style={{fontSize:9,fontWeight:700,color:'#D4A574',
+                        background:'rgba(212,165,116,0.12)',border:'1px solid rgba(212,165,116,0.25)',
+                        borderRadius:4,padding:'1px 5px',letterSpacing:'0.04em'}}>SS</span>}
+                    </div>
                     {sets.map((s,j) => (
                       <div key={j} style={{fontSize:12,color:'#8A8680',paddingLeft:8,
                         fontVariantNumeric:'tabular-nums',lineHeight:1.8}}>
@@ -1659,11 +1828,12 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     // Split picker — Step 1
     // ─────────────────────────────────────────────────────────────────────────
 
-    function SplitPickerStep1({ onSelect, onCancel, allSplits, onCreateSplit, onDeleteCustomSplit }) {
+    function SplitPickerStep1({ onSelect, onCancel, allSplits, onCreateSplit, onDeleteCustomSplit, allTemplates, onUseTemplate }) {
       const FREE = { id:'free', label:'Free Workout', muscles:[] };
       const splits = allSplits || SPLITS;
       const defaultSplits = splits.filter(s => !s.custom);
       const customSplits  = splits.filter(s => s.custom);
+      const templates = allTemplates || [];
 
       return (
         <div className="fade-in" style={{padding:'20px 20px 32px'}}>
@@ -1674,6 +1844,50 @@ Be encouraging, specific, and practical. Don't pad responses.`;
             </div>
             <button onClick={onCancel} style={{background:'none',border:'none',color:'#8A8680',fontSize:14,cursor:'pointer',paddingTop:2}}>Cancel</button>
           </div>
+
+          {/* Quick-start templates */}
+          {templates.length > 0 && (
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:10,fontWeight:600,color:'#4A4744',letterSpacing:'0.07em',
+                textTransform:'uppercase',marginBottom:10}}>Quick Start</div>
+              <div style={{display:'flex',flexDirection:'column',gap:7}}>
+                {templates.map(t => {
+                  const splitLabel = splits.find(s=>s.id===t.split)?.label||'Workout';
+                  return (
+                    <button key={t.fbKey}
+                      onClick={()=>{navigator.vibrate&&navigator.vibrate(10);onUseTemplate&&onUseTemplate(t);}}
+                      className="press-scale"
+                      style={{background:'rgba(212,165,116,0.06)',
+                        border:'1px solid rgba(212,165,116,0.2)',borderRadius:14,
+                        padding:'13px 16px',display:'flex',alignItems:'center',gap:14,
+                        cursor:'pointer',textAlign:'left',width:'100%',transition:'border-color 0.15s'}}
+                      onMouseEnter={e=>e.currentTarget.style.borderColor='rgba(212,165,116,0.45)'}
+                      onMouseLeave={e=>e.currentTarget.style.borderColor='rgba(212,165,116,0.2)'}>
+                      <div style={{width:34,height:34,borderRadius:9,
+                        background:'rgba(212,165,116,0.1)',
+                        display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D4A574" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                        </svg>
+                      </div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:14,fontWeight:600,color:'#D4A574'}}>{t.name}</div>
+                        <div style={{fontSize:11,color:'#8A8680',marginTop:2}}>
+                          {splitLabel} · {(t.exercises||[]).slice(0,3).join(', ')}{(t.exercises||[]).length>3?` +${(t.exercises||[]).length-3}`:''}
+                        </div>
+                      </div>
+                      <IconChevronRight size={14} color="#D4A574"/>
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{marginTop:16,marginBottom:4,borderTop:'1px solid #1e1e1e',paddingTop:16}}>
+                <div style={{fontSize:10,fontWeight:600,color:'#4A4744',letterSpacing:'0.07em',
+                  textTransform:'uppercase',marginBottom:10}}>Splits</div>
+              </div>
+            </div>
+          )}
+
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
             {defaultSplits.map(split => (
               <button key={split.id}
@@ -1929,7 +2143,39 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       );
     }
 
-    function ExerciseBlock({ exercise, onUpdate, onRemove, onSetComplete, exerciseNames, lastWeightMap, lastSessionMap }) {
+    // ─────────────────────────────────────────────────────────────────────────
+    // SupersetLink — connector button between exercise blocks
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function SupersetLink({ linked, onToggle }) {
+      return (
+        <div style={{display:'flex',alignItems:'center',gap:8,margin:'-6px 0 2px',paddingLeft:12}}>
+          <div style={{width:2,borderRadius:1,flexShrink:0,background:'#D4A574',
+            height:linked?22:0,transition:'height 0.2s'}}/>
+          <button onClick={onToggle} className="press-scale"
+            aria-label={linked ? 'Unlink superset' : 'Link as superset'}
+            style={{display:'flex',alignItems:'center',gap:5,
+              padding:'3px 10px',borderRadius:20,
+              background: linked ? 'rgba(212,165,116,0.12)' : 'transparent',
+              border: `1px solid ${linked ? 'rgba(212,165,116,0.3)' : '#242424'}`,
+              color: linked ? '#D4A574' : '#3a3a3a',
+              fontSize:10,fontWeight:700,letterSpacing:'0.04em',
+              cursor:'pointer',transition:'all 0.15s'}}
+            onMouseEnter={e=>{if(!linked){e.currentTarget.style.borderColor='#3e3e3e';e.currentTarget.style.color='#8A8680';}}}
+            onMouseLeave={e=>{if(!linked){e.currentTarget.style.borderColor='#242424';e.currentTarget.style.color='#3a3a3a';}}}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            {linked ? 'Superset' : 'SS'}
+          </button>
+          {linked && <div style={{flex:1,height:1,background:'rgba(212,165,116,0.12)',borderRadius:1}}/>}
+        </div>
+      );
+    }
+
+    function ExerciseBlock({ exercise, onUpdate, onRemove, onSetComplete, exerciseNames, lastWeightMap, lastSessionMap, inSuperset }) {
       const [newSetId, setNewSetId]         = useState(null);
       const [flashSetId, setFlashSetId]     = useState(null);
       const [plateCalcOpen, setPlateCalcOpen] = useState(false);
@@ -1980,12 +2226,20 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       };
       return (
         <>
-          <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,padding:'14px 14px 12px',marginBottom:12}}>
+          <div style={{background:'#1a1a1a',
+            border: inSuperset ? '1px solid rgba(212,165,116,0.35)' : '1px solid #262626',
+            borderLeft: inSuperset ? '3px solid rgba(212,165,116,0.6)' : undefined,
+            borderRadius:14,padding:'14px 14px 12px',marginBottom:4}}>
             <div style={{display:'flex',gap:8,marginBottom:8}}>
-              <div style={{flex:1}}>
+              <div style={{flex:1,display:'flex',alignItems:'center',gap:8}}>
                 <ExerciseInput value={exercise.name}
                   onChange={name=>onUpdate({...exercise,name})}
                   exerciseNames={exerciseNames} placeholder="Exercise name..."/>
+                {inSuperset && (
+                  <div style={{flexShrink:0,padding:'2px 7px',borderRadius:6,
+                    background:'rgba(212,165,116,0.12)',border:'1px solid rgba(212,165,116,0.3)',
+                    fontSize:10,fontWeight:700,color:'#D4A574',letterSpacing:'0.04em'}}>SS</div>
+                )}
               </div>
               <button onClick={onRemove}
                 aria-label={`Remove ${exercise.name || 'exercise'}`}
@@ -2065,12 +2319,30 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const [saving, setSaving]             = useState(false);
       const [timerVisible, setTimerVisible] = useState(false);
       const [timerAnchorId, setTimerAnchorId] = useState(null);
+      // supersets: Set of "idA|idB" strings (adjacent exercise pairs)
+      const [supersets, setSupersets]       = useState(new Set());
       const elapsed = useElapsedMinutes(activeWorkout.startTime);
       const { timeLeft, isResting, done, progress, defaultDur, startTimer, stopTimer } = useRestTimer();
 
       const totalVolume = useMemo(() =>
         exercises.reduce((sum,ex)=>sum+ex.sets.reduce((s2,s)=>s2+(parseFloat(s.weight)||0)*(parseInt(s.reps)||0),0),0),
         [exercises]);
+
+      const isLinked = (idA, idB) => supersets.has(`${idA}|${idB}`) || supersets.has(`${idB}|${idA}`);
+      const toggleLink = (idA, idB) => {
+        setSupersets(prev => {
+          const next = new Set(prev);
+          const key1 = `${idA}|${idB}`, key2 = `${idB}|${idA}`;
+          if (next.has(key1)) next.delete(key1);
+          else if (next.has(key2)) next.delete(key2);
+          else next.add(key1);
+          return next;
+        });
+      };
+      const exInSuperset = (exId, idx) => {
+        const prev = exercises[idx-1], next = exercises[idx+1];
+        return (prev && isLinked(prev.id, exId)) || (next && isLinked(exId, next.id));
+      };
 
       const handleSetComplete = (exId) => {
         setTimerAnchorId(exId);
@@ -2082,7 +2354,15 @@ Be encouraging, specific, and practical. Don't pad responses.`;
         const ok = exercises.some(ex=>ex.name.trim()&&ex.sets.some(s=>(parseFloat(s.weight)||0)>0&&(parseInt(s.reps)||0)>0));
         if (!ok) { alert('Add at least one exercise with a set logged before finishing.'); return; }
         setSaving(true);
-        try { await onFinish(exercises, notes); } finally { setSaving(false); }
+        // Annotate supersetGroup on exercises before saving
+        const exercisesWithSS = exercises.map((ex, i) => {
+          const next = exercises[i+1], prev = exercises[i-1];
+          const linkedToNext = next && isLinked(ex.id, next.id);
+          const linkedToPrev = prev && isLinked(prev.id, ex.id);
+          const groupIdx = linkedToNext ? i : linkedToPrev ? i-1 : null;
+          return groupIdx !== null ? {...ex, supersetGroup: groupIdx} : ex;
+        });
+        try { await onFinish(exercisesWithSS, notes); } finally { setSaving(false); }
       };
 
       return (
@@ -2096,14 +2376,19 @@ Be encouraging, specific, and practical. Don't pad responses.`;
             </div>
           </div>
           <div style={{flex:1,overflowY:'auto',padding:'16px 16px 0'}}>
-            {exercises.map(ex=>(
+            {exercises.map((ex, idx) => (
               <React.Fragment key={ex.id}>
                 <ExerciseBlock exercise={ex}
                   onUpdate={upd=>setExercises(p=>p.map(e=>e.id===upd.id?upd:e))}
-                  onRemove={()=>setExercises(p=>p.length>1?p.filter(e=>e.id!==ex.id):p)}
+                  onRemove={()=>{
+                    // clean up any supersets involving this exercise
+                    setSupersets(prev => new Set([...prev].filter(k => !k.includes(ex.id))));
+                    setExercises(p=>p.length>1?p.filter(e=>e.id!==ex.id):p);
+                  }}
                   onSetComplete={handleSetComplete}
                   exerciseNames={exerciseNames} lastWeightMap={lastWeightMap}
-                  lastSessionMap={lastSessionMap}/>
+                  lastSessionMap={lastSessionMap}
+                  inSuperset={exInSuperset(ex.id, idx)}/>
                 {timerVisible && timerAnchorId===ex.id && (
                   <RestTimer
                     timeLeft={timeLeft} isResting={isResting} done={done}
@@ -2112,12 +2397,19 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                     onDismiss={() => { stopTimer(); setTimerVisible(false); }}
                   />
                 )}
+                {/* SupersetLink between consecutive exercise blocks */}
+                {idx < exercises.length - 1 && (
+                  <SupersetLink
+                    linked={isLinked(ex.id, exercises[idx+1].id)}
+                    onToggle={() => toggleLink(ex.id, exercises[idx+1].id)}
+                  />
+                )}
               </React.Fragment>
             ))}
             <button onClick={()=>setExercises(p=>[...p,{id:`ex_${uid()}`,name:'',sets:[{id:`set_${uid()}`,weight:'',reps:''}]}])}
               className="press-scale"
               style={{display:'flex',alignItems:'center',justifyContent:'center',gap:8,
-                width:'100%',padding:'13px 20px',marginBottom:16,
+                width:'100%',padding:'13px 20px',marginBottom:16,marginTop:8,
                 background:'transparent',border:'1.5px dashed #2e2e2e',borderRadius:12,
                 color:'#8A8680',fontSize:14,fontWeight:500,cursor:'pointer',
                 transition:'color 0.15s,border-color 0.15s'}}
@@ -2261,7 +2553,8 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                         onStartWorkout, onCancelWorkout, onFinishWorkout,
                         todayWorkout, newPRs, onDismissPRs, isFirstTime,
                         allSplits, onCreateSplit, onDeleteCustomSplit,
-                        newMilestone, onDismissMilestone }) {
+                        newMilestone, onDismissMilestone,
+                        allTemplates, onSaveTemplate, onDeleteTemplate }) {
       const [step, setStep]               = useState('home');
       const [selSplit, setSelSplit]        = useState(null);
       const [pickerEx, setPickerEx]       = useState([]);
@@ -2292,6 +2585,12 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       };
       const resetPicker = () => { setStep('home'); setSelSplit(null); setPickerEx([]); };
 
+      const handleUseTemplate = (t) => {
+        const splitObj = (allSplits || SPLITS).find(s => s.id === t.split) || { id: t.split, label: t.name, muscles:[], defaults:[] };
+        const picked = (t.exercises || []).map(name => ({ name, selected: true }));
+        onStartWorkout(picked, splitObj);
+      };
+
       if (showCreateSplit) {
         return <CreateSplitModal
           exerciseNames={exerciseNames}
@@ -2304,7 +2603,9 @@ Be encouraging, specific, and practical. Don't pad responses.`;
         return <SplitPickerStep1 onSelect={handleSelectSplit} onCancel={resetPicker}
           allSplits={allSplits}
           onCreateSplit={onCreateSplit ? () => setShowCS(true) : undefined}
-          onDeleteCustomSplit={onDeleteCustomSplit}/>;
+          onDeleteCustomSplit={onDeleteCustomSplit}
+          allTemplates={allTemplates}
+          onUseTemplate={handleUseTemplate}/>;
       }
       if (step === 'pick_exercises' && selSplit) {
         return (
@@ -2327,7 +2628,8 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                 newPRs={newPRs} onDismissPRs={onDismissPRs}
                 onLogAnother={()=>setStep('pick_split')}
                 newMilestone={newMilestone} onDismissMilestone={onDismissMilestone}
-                allSplits={allSplits}/>
+                allSplits={allSplits}
+                onSaveTemplate={onSaveTemplate}/>
             : <TodayHome onOpenPicker={()=>setStep('pick_split')} isFirstTime={isFirstTime}/>
           }
         </div>
@@ -3242,7 +3544,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     // You tab — body weight + personal records
     // ─────────────────────────────────────────────────────────────────────────
 
-    function YouTab({ personalRecordsData, exerciseNamesData, workoutsData, allSplits }) {
+    function YouTab({ personalRecordsData, exerciseNamesData, workoutsData, allSplits, allTemplates, onDeleteTemplate, onSaveTemplate, onStartWorkout }) {
       const prCount = personalRecordsData ? Object.values(personalRecordsData).filter(p=>p&&p.name).length : 0;
       const [plateSheetOpen, setPlateSheetOpen] = useState(false);
       const [exportDone, setExportDone] = useState(false);
@@ -3282,6 +3584,25 @@ Be encouraging, specific, and practical. Don't pad responses.`;
               )}
             </div>
             <PRBoard personalRecordsData={personalRecordsData}/>
+          </div>
+
+          {/* Templates */}
+          <div style={{marginBottom:32}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+              <h3 style={sectionHead}>Templates</h3>
+              {allTemplates && allTemplates.length > 0 && (
+                <span style={{fontSize:12,color:'#4A4744'}}>{allTemplates.length} saved</span>
+              )}
+            </div>
+            <TemplatesSection
+              allTemplates={allTemplates}
+              allSplits={allSplits}
+              onUseTemplate={onStartWorkout ? (t) => {
+                const splitObj = (allSplits||SPLITS).find(s=>s.id===t.split)||{id:t.split,label:t.name,muscles:[],defaults:[]};
+                onStartWorkout((t.exercises||[]).map(name=>({name,selected:true})), splitObj);
+              } : undefined}
+              onDeleteTemplate={onDeleteTemplate}
+            />
           </div>
 
           {/* Tools */}
@@ -3694,6 +4015,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const [personalRecordsData]  = useFirebase('drea/personalRecords');
       const [bodyWeightsData]      = useFirebase('drea/bodyWeights');
       const [customSplitsData]     = useFirebase('drea/customSplits');
+      const [templatesData]        = useFirebase('drea/templates');
 
       const exerciseNames = useMemo(() => {
         if (!exerciseNamesData) return ALL_EXERCISE_NAMES;
@@ -3708,6 +4030,14 @@ Be encouraging, specific, and practical. Don't pad responses.`;
           : [];
         return [...SPLITS, ...custom];
       }, [customSplitsData]);
+
+      const allTemplates = useMemo(() => {
+        if (!templatesData) return [];
+        return Object.entries(templatesData)
+          .filter(([,t]) => t && t.name)
+          .map(([fbKey, t]) => ({ ...t, fbKey }))
+          .sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+      }, [templatesData]);
 
       const lastWeightMap   = useMemo(() => buildLastWeightMap(workoutsData), [workoutsData]);
       const lastSessionMap  = useMemo(() => buildLastSessionMap(workoutsData), [workoutsData]);
@@ -3768,6 +4098,21 @@ Be encouraging, specific, and practical. Don't pad responses.`;
         await fbRemove(`drea/customSplits/${fbKey}`);
       };
 
+      const handleSaveTemplate = async (name, split, exercises) => {
+        const key = db.ref('drea/templates').push().key;
+        await fbSet(`drea/templates/${key}`, {
+          name: sanitize(name).slice(0,40),
+          split,
+          exercises: exercises.map(n => sanitize(n).slice(0,100)),
+          createdAt: Date.now(),
+        });
+      };
+
+      const handleDeleteTemplate = async (fbKey) => {
+        if (!fbKey) return;
+        await fbRemove(`drea/templates/${fbKey}`);
+      };
+
       if (seeding) return <SeedingScreen/>;
 
       return (
@@ -3794,10 +4139,13 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                   onDeleteCustomSplit={handleDeleteCustomSplit}
                   newMilestone={newMilestone}
                   onDismissMilestone={()=>setNewMilestone(null)}
+                  allTemplates={allTemplates}
+                  onSaveTemplate={handleSaveTemplate}
+                  onDeleteTemplate={handleDeleteTemplate}
                 />
               )}
               {activeTab==='history'&&<HistoryTab key="history" workoutsData={workoutsData} personalRecordsData={personalRecordsData} allSplits={allSplits}/>}
-              {activeTab==='you'&&<YouTab key="you" personalRecordsData={personalRecordsData} exerciseNamesData={exerciseNamesData} workoutsData={workoutsData} allSplits={allSplits}/>}
+              {activeTab==='you'&&<YouTab key="you" personalRecordsData={personalRecordsData} exerciseNamesData={exerciseNamesData} workoutsData={workoutsData} allSplits={allSplits} allTemplates={allTemplates} onDeleteTemplate={handleDeleteTemplate} onSaveTemplate={handleSaveTemplate} onStartWorkout={(picked,split)=>{handleStartWorkout(picked,split);setActiveTab('today');}}/>}
             </main>
             <BottomNav activeTab={activeTab} onTabPress={handleTabPress}/>
           </div>
