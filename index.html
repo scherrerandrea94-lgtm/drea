@@ -190,6 +190,15 @@
         defaults:['Deadlift','Barbell Row','T-Bar Row','Lat Pulldown','Seated Cable Row','Shrugs','Face Pulls'] },
     ];
 
+    const MUSCLE_GROUPS = [
+      {id:'chest',label:'Chest'},{id:'back',label:'Back'},
+      {id:'shoulders',label:'Shoulders'},{id:'biceps',label:'Biceps'},
+      {id:'triceps',label:'Triceps'},{id:'traps',label:'Traps'},
+      {id:'legs',label:'Legs'},{id:'core',label:'Core'},
+    ];
+
+    const STREAK_MILESTONES = [7,14,30,60,90,180,365];
+
     // ─────────────────────────────────────────────────────────────────────────
     // Utilities
     // ─────────────────────────────────────────────────────────────────────────
@@ -606,6 +615,48 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // useVoiceInput — Web Speech API for hands-free set entry ("185 8")
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function useVoiceInput(onResult) {
+      const [isListening, setIsListening]         = useState(false);
+      const [listeningForId, setListeningForId]   = useState(null);
+      const recogRef    = useRef(null);
+      const callbackRef = useRef(onResult);
+      useEffect(() => { callbackRef.current = onResult; });
+      const supported = typeof window !== 'undefined' &&
+        !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+      const startListening = useCallback((id) => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return;
+        recogRef.current?.stop();
+        const r = new SR();
+        r.continuous = false; r.interimResults = false; r.lang = 'en-US';
+        r.onresult = (e) => {
+          const text = e.results[0][0].transcript.trim();
+          const nums = text.match(/\d+(\.\d+)?/g);
+          if (nums && nums.length >= 2)      callbackRef.current(id, { weight: nums[0], reps: nums[1] });
+          else if (nums && nums.length === 1) callbackRef.current(id, { weight: nums[0], reps: null });
+          setIsListening(false); setListeningForId(null);
+        };
+        r.onerror = () => { setIsListening(false); setListeningForId(null); };
+        r.onend   = () => { setIsListening(false); setListeningForId(null); };
+        recogRef.current = r; r.start();
+        setIsListening(true); setListeningForId(id);
+        navigator.vibrate && navigator.vibrate(15);
+      }, []);
+
+      const stopListening = useCallback(() => {
+        recogRef.current?.stop();
+        setIsListening(false); setListeningForId(null);
+      }, []);
+
+      useEffect(() => () => recogRef.current?.stop(), []);
+      return { isListening, listeningForId, startListening, stopListening, supported };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // SVG Icons
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -781,10 +832,135 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // MilestoneBanner — streak milestone celebration
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function MilestoneBanner({ weeks, onDismiss }) {
+      const msg = weeks >= 365 ? 'One full year of consistent training. Legendary.'
+        : weeks >= 180 ? 'Six months without missing a week.'
+        : weeks >= 90  ? '90 consecutive weeks. That\'s elite.'
+        : weeks >= 60  ? '60 weeks straight — truly remarkable.'
+        : weeks >= 30  ? 'A full 30 weeks of weekly workouts.'
+        : weeks >= 14  ? 'Two weeks in a row — the habit is forming.'
+        : 'First milestone unlocked. Keep going!';
+      return (
+        <div className="pr-glow fade-in"
+          style={{background:'rgba(192,139,139,0.12)',border:'1px solid rgba(192,139,139,0.4)',
+            borderRadius:14,padding:'16px 18px',marginBottom:16}}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C08B8B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.11M12 2l2.12 4.29 4.73.68-3.42 3.33.81 4.71L12 12.5 7.76 14.9l.81-4.71L5.15 6.97l4.73-.68L12 2z"/>
+              </svg>
+              <span style={{fontSize:14,fontWeight:700,color:'#C08B8B'}}>{weeks}-Week Streak Milestone!</span>
+            </div>
+            <button onClick={onDismiss} aria-label="Dismiss milestone banner"
+              style={{background:'none',border:'none',cursor:'pointer',color:'#8A8680',padding:4}}>
+              <IconX size={14} color="currentColor"/>
+            </button>
+          </div>
+          <p style={{fontSize:13,color:'#F0EDE8',lineHeight:1.5,margin:0}}>{msg}</p>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Share workout card — canvas → PNG → Web Share API
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function generateWorkoutShareImage(workout, dateKey, splitLabel) {
+      const canvas = document.createElement('canvas');
+      const S = 390;
+      canvas.width = S; canvas.height = S;
+      const ctx = canvas.getContext('2d');
+      const sans = '-apple-system, BlinkMacSystemFont, sans-serif';
+
+      // Background
+      ctx.fillStyle = '#0f0f0f'; ctx.fillRect(0, 0, S, S);
+
+      // Card (rounded rect)
+      ctx.fillStyle = '#1a1a1a';
+      const R = 20, m = 20;
+      ctx.beginPath();
+      ctx.moveTo(m+R, m); ctx.lineTo(S-m-R, m);
+      ctx.arcTo(S-m, m, S-m, m+R, R); ctx.lineTo(S-m, S-m-R);
+      ctx.arcTo(S-m, S-m, S-m-R, S-m, R); ctx.lineTo(m+R, S-m);
+      ctx.arcTo(m, S-m, m, S-m-R, R); ctx.lineTo(m, m+R);
+      ctx.arcTo(m, m, m+R, m, R); ctx.closePath();
+      ctx.fill();
+
+      // Brand
+      ctx.fillStyle = '#D4A574'; ctx.font = `700 13px ${sans}`;
+      ctx.fillText('DREA', 40, 56);
+
+      // Split + date
+      ctx.fillStyle = '#8A8680'; ctx.font = `500 13px ${sans}`;
+      ctx.fillText(splitLabel, 40, 76);
+      ctx.fillStyle = '#4A4744'; ctx.font = `400 12px ${sans}`;
+      ctx.fillText(formatDate(dateKey), 40, 94);
+
+      // Divider
+      ctx.strokeStyle = '#262626'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(40, 108); ctx.lineTo(S-40, 108); ctx.stroke();
+
+      // Volume
+      const vol = (workout.totalVolume || 0).toLocaleString();
+      ctx.fillStyle = '#F0EDE8'; ctx.font = `700 50px ${sans}`;
+      ctx.fillText(vol, 40, 172);
+      ctx.fillStyle = '#8A8680'; ctx.font = `500 13px ${sans}`;
+      ctx.fillText('lbs total volume', 40, 192);
+      ctx.fillStyle = '#4A4744'; ctx.font = `400 12px ${sans}`;
+      ctx.fillText(`${workout.duration || 0} minutes`, 40, 210);
+
+      // Exercise list
+      ctx.strokeStyle = '#262626'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(40, 226); ctx.lineTo(S-40, 226); ctx.stroke();
+      const exs = workout.exercises
+        ? Object.values(workout.exercises).filter(e => e.name).slice(0, 7)
+        : [];
+      exs.forEach((ex, i) => {
+        const sets = ex.sets ? Object.values(ex.sets).filter(s => s.weight && s.reps) : [];
+        const best = sets.length
+          ? sets.reduce((b, s) => parseFloat(s.weight) > parseFloat(b.weight) ? s : b)
+          : null;
+        const detail = best ? `  ·  ${best.weight} × ${best.reps}` : '';
+        ctx.fillStyle = i === 0 ? '#D4A574' : '#8A8680';
+        ctx.font = `${i === 0 ? 600 : 400} 12px ${sans}`;
+        ctx.fillText((ex.name + detail).slice(0, 46), 40, 244 + i * 18);
+      });
+
+      // Footer
+      ctx.strokeStyle = '#222'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(40, S-46); ctx.lineTo(S-40, S-46); ctx.stroke();
+      ctx.fillStyle = '#3a3a3a'; ctx.font = `400 11px ${sans}`;
+      ctx.fillText('Logged with Drea', 40, S-26);
+
+      return canvas.toDataURL('image/png');
+    }
+
+    async function shareWorkoutCard(workout, dateKey, splitLabel) {
+      try {
+        const dataURL = generateWorkoutShareImage(workout, dateKey, splitLabel);
+        if (navigator.share) {
+          const blob = await (await fetch(dataURL)).blob();
+          const file = new File([blob], `drea-${dateKey}.png`, {type:'image/png'});
+          if (navigator.canShare && navigator.canShare({files:[file]})) {
+            await navigator.share({files:[file], title:'Workout', text:`${formatDate(dateKey)} — ${(workout.totalVolume||0).toLocaleString()} lbs`});
+            return;
+          }
+          await navigator.share({title:'Workout', text:`${formatDate(dateKey)} — ${splitLabel} — ${(workout.totalVolume||0).toLocaleString()} lbs`});
+        } else {
+          const a = document.createElement('a');
+          a.href = dataURL; a.download = `drea-${dateKey}.png`; a.click();
+        }
+      } catch(err) { if (err.name !== 'AbortError') console.warn('Share error:', err); }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Today Summary — post-workout card
     // ─────────────────────────────────────────────────────────────────────────
 
-    function TodaySummary({ workoutKey, workout, newPRs, onDismissPRs, onLogAnother }) {
+    function TodaySummary({ workoutKey, workout, newPRs, onDismissPRs, onLogAnother, newMilestone, onDismissMilestone, allSplits }) {
       const [expanded, setExpanded] = useState(false);
 
       const exercises = workout.exercises
@@ -794,10 +970,16 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const exCount   = exercises.length;
       const vol       = (workout.totalVolume || 0).toLocaleString();
       const dur       = workout.duration || 0;
-      const splitLabel = SPLITS.find(s => s.id === workout.split)?.label || 'Free Workout';
+      const splits    = allSplits || SPLITS;
+      const splitLabel = splits.find(s => s.id === workout.split)?.label || 'Free Workout';
 
       return (
         <div className="fade-in" style={{ padding:'20px 20px 0' }}>
+
+          {/* Milestone banner */}
+          {newMilestone && (
+            <MilestoneBanner weeks={newMilestone} onDismiss={onDismissMilestone}/>
+          )}
 
           {/* PR banner */}
           {newPRs && newPRs.length > 0 && (
@@ -862,12 +1044,25 @@ Be encouraging, specific, and practical. Don't pad responses.`;
             )}
           </div>
 
-          {/* Log another */}
-          <button onClick={onLogAnother} className="press-scale"
-            style={{ width:'100%', padding:'12px 0', borderRadius:11, border:'1px solid #2e2e2e',
-              background:'transparent', color:'#8A8680', fontSize:14, fontWeight:600, cursor:'pointer' }}>
-            Log Another Workout
-          </button>
+          {/* Action buttons */}
+          <div style={{display:'flex',gap:10}}>
+            <button onClick={() => shareWorkoutCard(workout, workoutKey, splitLabel)}
+              className="press-scale"
+              style={{flex:1,padding:'12px 0',borderRadius:11,border:'1px solid #2e2e2e',
+                background:'transparent',color:'#8A8680',fontSize:14,fontWeight:600,cursor:'pointer',
+                display:'flex',alignItems:'center',justifyContent:'center',gap:7}}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+                <polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+              </svg>
+              Share
+            </button>
+            <button onClick={onLogAnother} className="press-scale"
+              style={{flex:2,padding:'12px 0',borderRadius:11,border:'1px solid #2e2e2e',
+                background:'transparent',color:'#8A8680',fontSize:14,fontWeight:600,cursor:'pointer'}}>
+              Log Another Workout
+            </button>
+          </div>
         </div>
       );
     }
@@ -965,9 +1160,10 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     // WorkoutCard — expandable accordion entry in History list
     // ─────────────────────────────────────────────────────────────────────────
 
-    function WorkoutCard({ dateKey, workout }) {
+    function WorkoutCard({ dateKey, workout, allSplits }) {
       const [exp, setExp] = useState(false);
-      const splitLabel = SPLITS.find(s => s.id === workout.split)?.label || 'Free Workout';
+      const splits = allSplits || SPLITS;
+      const splitLabel = splits.find(s => s.id === workout.split)?.label || 'Free Workout';
       const exs = workout.exercises
         ? Object.keys(workout.exercises).sort().map(k => workout.exercises[k])
         : [];
@@ -1145,8 +1341,12 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     // Split picker — Step 1
     // ─────────────────────────────────────────────────────────────────────────
 
-    function SplitPickerStep1({ onSelect, onCancel }) {
+    function SplitPickerStep1({ onSelect, onCancel, allSplits, onCreateSplit, onDeleteCustomSplit }) {
       const FREE = { id:'free', label:'Free Workout', muscles:[] };
+      const splits = allSplits || SPLITS;
+      const defaultSplits = splits.filter(s => !s.custom);
+      const customSplits  = splits.filter(s => s.custom);
+
       return (
         <div className="fade-in" style={{padding:'20px 20px 32px'}}>
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:24}}>
@@ -1157,7 +1357,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
             <button onClick={onCancel} style={{background:'none',border:'none',color:'#8A8680',fontSize:14,cursor:'pointer',paddingTop:2}}>Cancel</button>
           </div>
           <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            {SPLITS.map(split => (
+            {defaultSplits.map(split => (
               <button key={split.id}
                 onClick={()=>{navigator.vibrate&&navigator.vibrate(10);onSelect(split);}}
                 className="press-scale"
@@ -1172,11 +1372,65 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                 <IconChevronRight size={16} color="#4A4744"/>
               </button>
             ))}
+
+            {/* Custom splits */}
+            {customSplits.length > 0 && (
+              <div style={{borderTop:'1px solid #1e1e1e',paddingTop:10,marginTop:2}}>
+                <div style={{fontSize:10,fontWeight:600,color:'#4A4744',letterSpacing:'0.07em',
+                  textTransform:'uppercase',marginBottom:8,paddingLeft:2}}>My Splits</div>
+                {customSplits.map(split => (
+                  <div key={split.id} style={{display:'flex',gap:8,marginBottom:8}}>
+                    <button onClick={()=>{navigator.vibrate&&navigator.vibrate(10);onSelect(split);}}
+                      className="press-scale"
+                      style={{flex:1,background:'rgba(212,165,116,0.05)',
+                        border:'1px solid rgba(212,165,116,0.2)',borderRadius:14,
+                        padding:'13px 16px',display:'flex',alignItems:'center',gap:14,
+                        cursor:'pointer',textAlign:'left'}}>
+                      <SplitIcon id="free" size={22} color="#D4A574"/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:14,fontWeight:600,color:'#F0EDE8'}}>{split.label}</div>
+                        <div style={{fontSize:11,color:'#8A8680',marginTop:2}}>
+                          {split.muscles.join(', ') || 'Custom'}
+                        </div>
+                      </div>
+                      <IconChevronRight size={15} color="#4A4744"/>
+                    </button>
+                    {onDeleteCustomSplit && (
+                      <button onClick={(e)=>{e.stopPropagation();
+                        if(window.confirm(`Delete "${split.label}"?`))
+                          onDeleteCustomSplit(split.fbKey);}}
+                        aria-label={`Delete ${split.label}`}
+                        style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:12,
+                          padding:'0 12px',cursor:'pointer',display:'flex',alignItems:'center',
+                          color:'#3a3a3a',transition:'color 0.15s',flexShrink:0}}
+                        onMouseEnter={e=>e.currentTarget.style.color='#C47070'}
+                        onMouseLeave={e=>e.currentTarget.style.color='#3a3a3a'}>
+                        <IconX size={14} color="currentColor"/>
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Create split */}
+            {onCreateSplit && (
+              <button onClick={onCreateSplit} className="press-scale"
+                style={{background:'transparent',border:'1px dashed #2e2e2e',borderRadius:14,
+                  padding:'12px 18px',display:'flex',alignItems:'center',gap:12,
+                  cursor:'pointer',textAlign:'left',width:'100%',transition:'border-color 0.15s'}}
+                onMouseEnter={e=>e.currentTarget.style.borderColor='#D4A574'}
+                onMouseLeave={e=>e.currentTarget.style.borderColor='#2e2e2e'}>
+                <IconPlus size={18} color="#8A8680"/>
+                <span style={{fontSize:14,fontWeight:500,color:'#8A8680'}}>Create Custom Split</span>
+              </button>
+            )}
+
             <button onClick={()=>{navigator.vibrate&&navigator.vibrate(10);onSelect(FREE);}}
               className="press-scale"
               style={{background:'transparent',border:'1.5px dashed #2e2e2e',borderRadius:14,
                 padding:'15px 18px',display:'flex',alignItems:'center',gap:16,
-                cursor:'pointer',textAlign:'left',width:'100%',marginTop:4}}>
+                cursor:'pointer',textAlign:'left',width:'100%',marginTop:2}}>
               <SplitIcon id="free" size={26} color="#8A8680"/>
               <div style={{flex:1}}>
                 <div style={{fontSize:15,fontWeight:600,color:'#F0EDE8'}}>Free Workout</div>
@@ -1249,7 +1503,17 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     // Active workout logger
     // ─────────────────────────────────────────────────────────────────────────
 
-    function SetRow({ setNum, set, onChange, onRemove, autoFocusWeight, isFlashing }) {
+    const IconMic = ({size=14,color='currentColor',active=false}) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+        className={active ? 'pulse' : undefined}>
+        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>
+    );
+
+    function SetRow({ setNum, set, onChange, onRemove, autoFocusWeight, isFlashing, onVoiceInput, isVoiceListening }) {
       const weightRef = useRef(null);
       useEffect(() => {
         if (autoFocusWeight && weightRef.current) { weightRef.current.focus(); weightRef.current.select(); }
@@ -1282,9 +1546,21 @@ Be encouraging, specific, and practical. Don't pad responses.`;
             onBlur={e=>e.target.style.borderColor='#2e2e2e'}
             style={{...inputBase,width:58,borderColor: isFlashing ? 'rgba(122,158,126,0.5)' : '#2e2e2e'}}/>
           <span style={{color:'#4A4744',fontSize:11,flexShrink:0}}>reps</span>
+          {onVoiceInput && (
+            <button onClick={() => isVoiceListening ? undefined : onVoiceInput()}
+              aria-label={isVoiceListening ? 'Listening for set...' : `Voice input set ${setNum}`}
+              title="Say weight then reps, e.g. &quot;185 8&quot;"
+              style={{background:'none',border:'none',cursor:isVoiceListening?'default':'pointer',
+                color:isVoiceListening?'#D4A574':'#3a3a3a',padding:'6px 4px',
+                display:'flex',alignItems:'center',flexShrink:0,borderRadius:6,transition:'color 0.15s'}}
+              onMouseEnter={e=>{ if(!isVoiceListening) e.currentTarget.style.color='#8A8680'; }}
+              onMouseLeave={e=>{ if(!isVoiceListening) e.currentTarget.style.color='#3a3a3a'; }}>
+              <IconMic size={14} color="currentColor" active={isVoiceListening}/>
+            </button>
+          )}
           <button onClick={onRemove}
             aria-label={`Remove set ${setNum}`}
-            style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',
+            style={{background:'none',border:'none',cursor:'pointer',
               color:'#3a3a3a',padding:8,display:'flex',alignItems:'center',flexShrink:0,
               borderRadius:6,transition:'color 0.15s'}}
             onMouseEnter={e=>e.currentTarget.style.color='#C47070'}
@@ -1339,6 +1615,23 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const [newSetId, setNewSetId]     = useState(null);
       const [flashSetId, setFlashSetId] = useState(null);
       const flashTimer                  = useRef(null);
+      const onUpdateRef                 = useRef(onUpdate);
+      const exerciseRef                 = useRef(exercise);
+      useEffect(() => { onUpdateRef.current = onUpdate; exerciseRef.current = exercise; });
+
+      const { listeningForId, startListening, supported: voiceSupported } = useVoiceInput(
+        useCallback((setId, { weight, reps }) => {
+          const ex = exerciseRef.current;
+          onUpdateRef.current({
+            ...ex,
+            sets: ex.sets.map(s => s.id !== setId ? s : {
+              ...s,
+              ...(weight !== null ? {weight} : {}),
+              ...(reps   !== null ? {reps}   : {}),
+            }),
+          });
+        }, [])
+      );
       const exVolume = useMemo(() =>
         exercise.sets.reduce((sum,s)=>sum+(parseFloat(s.weight)||0)*(parseInt(s.reps)||0),0),
         [exercise.sets]);
@@ -1403,6 +1696,8 @@ Be encouraging, specific, and practical. Don't pad responses.`;
               onRemove={()=>{ if(exercise.sets.length>1) onUpdate({...exercise,sets:exercise.sets.filter(s=>s.id!==set.id)}); }}
               autoFocusWeight={set.id===newSetId}
               isFlashing={set.id===flashSetId}
+              onVoiceInput={voiceSupported ? () => startListening(set.id) : undefined}
+              isVoiceListening={listeningForId === set.id}
             />
           ))}
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
@@ -1621,10 +1916,13 @@ Be encouraging, specific, and practical. Don't pad responses.`;
 
     function TodayTab({ exerciseNames, workoutsData, activeWorkout, lastWeightMap, lastSessionMap,
                         onStartWorkout, onCancelWorkout, onFinishWorkout,
-                        todayWorkout, newPRs, onDismissPRs, isFirstTime }) {
-      const [step, setStep]           = useState('home');
-      const [selSplit, setSelSplit]    = useState(null);
-      const [pickerEx, setPickerEx]   = useState([]);
+                        todayWorkout, newPRs, onDismissPRs, isFirstTime,
+                        allSplits, onCreateSplit, onDeleteCustomSplit,
+                        newMilestone, onDismissMilestone }) {
+      const [step, setStep]               = useState('home');
+      const [selSplit, setSelSplit]        = useState(null);
+      const [pickerEx, setPickerEx]       = useState([]);
+      const [showCreateSplit, setShowCS]  = useState(false);
       const freq = useMemo(() => buildExerciseFrequency(workoutsData), [workoutsData]);
 
       if (activeWorkout) {
@@ -1640,8 +1938,19 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       };
       const resetPicker = () => { setStep('home'); setSelSplit(null); setPickerEx([]); };
 
+      if (showCreateSplit) {
+        return <CreateSplitModal
+          exerciseNames={exerciseNames}
+          onSave={(split) => { onCreateSplit && onCreateSplit(split); setShowCS(false); }}
+          onCancel={() => setShowCS(false)}
+        />;
+      }
+
       if (step === 'pick_split') {
-        return <SplitPickerStep1 onSelect={handleSelectSplit} onCancel={resetPicker}/>;
+        return <SplitPickerStep1 onSelect={handleSelectSplit} onCancel={resetPicker}
+          allSplits={allSplits}
+          onCreateSplit={onCreateSplit ? () => setShowCS(true) : undefined}
+          onDeleteCustomSplit={onDeleteCustomSplit}/>;
       }
       if (step === 'pick_exercises' && selSplit) {
         return (
@@ -1661,7 +1970,9 @@ Be encouraging, specific, and practical. Don't pad responses.`;
           {todayWorkout
             ? <TodaySummary workoutKey={todayKey()} workout={todayWorkout}
                 newPRs={newPRs} onDismissPRs={onDismissPRs}
-                onLogAnother={()=>setStep('pick_split')}/>
+                onLogAnother={()=>setStep('pick_split')}
+                newMilestone={newMilestone} onDismissMilestone={onDismissMilestone}
+                allSplits={allSplits}/>
             : <TodayHome onOpenPicker={()=>setStep('pick_split')} isFirstTime={isFirstTime}/>
           }
         </div>
@@ -1672,7 +1983,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     // History tab — sub-tabs: History | Progress | PRs
     // ─────────────────────────────────────────────────────────────────────────
 
-    function HistoryTab({ workoutsData, personalRecordsData }) {
+    function HistoryTab({ workoutsData, personalRecordsData, allSplits }) {
       const [subTab, setSubTab]         = useState('history');
       const [selEx, setSelEx]           = useState('');
       const [pickerOpen, setPickerOpen] = useState(false);
@@ -1728,7 +2039,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                   </p>
                 </div>
               ) : (
-                sortedWorkouts.map(([key, w]) => <WorkoutCard key={key} dateKey={key} workout={w}/>)
+                sortedWorkouts.map(([key, w]) => <WorkoutCard key={key} dateKey={key} workout={w} allSplits={allSplits}/>)
               )
             )}
 
@@ -2121,6 +2432,282 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // MuscleHeatMap — SVG body diagram color-coded by training recency
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function MuscleHeatMap({ workoutsData }) {
+      const { recency, thisWS, lastWS } = useMemo(() => {
+        const r = {};
+        if (!workoutsData) return { recency:r, thisWS:'', lastWS:'' };
+        const tw = getWeekStart(todayKey());
+        const lw = (() => { const d = new Date(tw+'T12:00:00'); d.setDate(d.getDate()-7); return d.toISOString().slice(0,10); })();
+        Object.entries(workoutsData).forEach(([date, w]) => {
+          if (!w.exercises) return;
+          const ws = getWeekStart(date);
+          Object.values(w.exercises).forEach(ex => {
+            (EXERCISE_MUSCLE_MAP[ex.name] || []).forEach(m => {
+              if (!r[m] || ws > r[m]) r[m] = ws;
+            });
+          });
+        });
+        return { recency:r, thisWS:tw, lastWS:lw };
+      }, [workoutsData]);
+
+      const col = (m) => {
+        const r = recency[m];
+        if (!r) return '#222';
+        if (r === thisWS) return 'rgba(122,158,126,0.72)';
+        if (r === lastWS) return 'rgba(212,165,116,0.65)';
+        return 'rgba(74,71,68,0.75)';
+      };
+
+      // Two body figures: front (FX=10) and back (BX=125)
+      const FX=10, BX=125;
+      const bs = '#2a2a2a', bf = '#161616'; // body stroke / fill
+
+      // Shared body outline path (offset by ox)
+      const bodyPath = (ox) =>
+        `M${ox+44} 37 Q${ox+38} 39 ${ox+28} 44 L${ox+22} 76 L${ox+32} 76 ` +
+        `Q${ox+36} 58 ${ox+38} 50 L${ox+38} 98 L${ox+44} 102 ` +
+        `L${ox+42} 152 L${ox+50} 152 L${ox+50} 110 ` +
+        `L${ox+50} 152 L${ox+58} 152 L${ox+56} 102 ` +
+        `L${ox+62} 98 L${ox+62} 50 Q${ox+64} 58 ${ox+68} 76 L${ox+78} 76 ` +
+        `L${ox+72} 44 Q${ox+62} 39 ${ox+56} 37 Z`;
+
+      return (
+        <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,padding:'14px 16px'}}>
+          <div style={{fontSize:12,color:'#8A8680',marginBottom:12,fontWeight:500}}>Muscle Training Recency</div>
+          <svg viewBox="0 0 225 168" width="100%" style={{display:'block'}}>
+
+            {/* Labels */}
+            <text x={FX+50} y={10} textAnchor="middle" fill="#4A4744" fontSize="8" fontFamily="-apple-system,sans-serif" fontWeight="600">FRONT</text>
+            <text x={BX+50} y={10} textAnchor="middle" fill="#4A4744" fontSize="8" fontFamily="-apple-system,sans-serif" fontWeight="600">BACK</text>
+
+            {/* ── FRONT ── */}
+            {/* Head */}
+            <circle cx={FX+50} cy={24} r={12} fill={bf} stroke={bs} strokeWidth="1.5"/>
+            {/* Body outline */}
+            <path d={bodyPath(FX)} fill={bf} stroke={bs} strokeWidth="1.5" strokeLinejoin="round"/>
+            {/* Muscle zones — front */}
+            <ellipse cx={FX+43} cy={55} rx={11} ry={10} fill={col('chest')}/>
+            <ellipse cx={FX+57} cy={55} rx={11} ry={10} fill={col('chest')}/>
+            <ellipse cx={FX+28} cy={48} rx={9} ry={8} fill={col('shoulders')}/>
+            <ellipse cx={FX+72} cy={48} rx={9} ry={8} fill={col('shoulders')}/>
+            <rect x={FX+19} y={55} width={11} height={22} rx={5.5} fill={col('biceps')}/>
+            <rect x={FX+70} y={55} width={11} height={22} rx={5.5} fill={col('biceps')}/>
+            <rect x={FX+43} y={68} width={14} height={26} rx={5} fill={col('core')}/>
+            <rect x={FX+38} y={103} width={11} height={34} rx={5.5} fill={col('legs')}/>
+            <rect x={FX+51} y={103} width={11} height={34} rx={5.5} fill={col('legs')}/>
+
+            {/* ── BACK ── */}
+            {/* Head */}
+            <circle cx={BX+50} cy={24} r={12} fill={bf} stroke={bs} strokeWidth="1.5"/>
+            {/* Body outline */}
+            <path d={bodyPath(BX)} fill={bf} stroke={bs} strokeWidth="1.5" strokeLinejoin="round"/>
+            {/* Muscle zones — back */}
+            <ellipse cx={BX+42} cy={48} rx={14} ry={8} fill={col('traps')}/>
+            <ellipse cx={BX+58} cy={48} rx={14} ry={8} fill={col('traps')}/>
+            <ellipse cx={BX+36} cy={64} rx={12} ry={18} fill={col('back')}/>
+            <ellipse cx={BX+64} cy={64} rx={12} ry={18} fill={col('back')}/>
+            <rect x={BX+19} y={55} width={11} height={22} rx={5.5} fill={col('triceps')}/>
+            <rect x={BX+70} y={55} width={11} height={22} rx={5.5} fill={col('triceps')}/>
+            <rect x={BX+38} y={103} width={11} height={34} rx={5.5} fill={col('legs')}/>
+            <rect x={BX+51} y={103} width={11} height={34} rx={5.5} fill={col('legs')}/>
+          </svg>
+
+          {/* Legend */}
+          <div style={{display:'flex',gap:14,flexWrap:'wrap',marginTop:10,justifyContent:'center'}}>
+            {[
+              {c:'rgba(122,158,126,0.72)',l:'This week'},
+              {c:'rgba(212,165,116,0.65)',l:'Last week'},
+              {c:'rgba(74,71,68,0.75)',   l:'Earlier'},
+              {c:'#222',                  l:'Not trained'},
+            ].map(({c,l}) => (
+              <div key={l} style={{display:'flex',alignItems:'center',gap:5}}>
+                <div style={{width:8,height:8,borderRadius:'50%',background:c,border:'1px solid #333',flexShrink:0}}/>
+                <span style={{fontSize:10,color:'#4A4744'}}>{l}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Muscle pills */}
+          <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:12,justifyContent:'center'}}>
+            {MUSCLE_GROUPS.map(({id,label}) => (
+              <div key={id} style={{display:'flex',alignItems:'center',gap:4,
+                padding:'3px 9px',borderRadius:20,background:'rgba(255,255,255,0.02)',
+                border:'1px solid #222'}}>
+                <div style={{width:6,height:6,borderRadius:'50%',background:col(id),
+                  border:'1px solid rgba(255,255,255,0.08)',flexShrink:0}}/>
+                <span style={{fontSize:10,color:'#8A8680'}}>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // CreateSplitModal — build a custom split
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function CreateSplitModal({ exerciseNames, onSave, onCancel }) {
+      const [name, setName]             = useState('');
+      const [selMuscles, setSelMuscles] = useState([]);
+      const [selExercises, setSelExes]  = useState([]);
+      const [exSearch, setExSearch]     = useState('');
+
+      const toggleMuscle = (id) =>
+        setSelMuscles(p => p.includes(id) ? p.filter(m=>m!==id) : [...p, id]);
+      const toggleEx = (n) =>
+        setSelExes(p => p.includes(n) ? p.filter(x=>x!==n) : [...p, n]);
+
+      const suggestedExs = useMemo(() => {
+        if (!selMuscles.length) return [];
+        return Object.entries(EXERCISE_MUSCLE_MAP)
+          .filter(([,m]) => m.some(g => selMuscles.includes(g)))
+          .map(([n]) => n).sort();
+      }, [selMuscles]);
+
+      const pool = selMuscles.length ? suggestedExs : (exerciseNames.length ? exerciseNames : ALL_EXERCISE_NAMES);
+      const filtered = useMemo(() => {
+        const q = exSearch.trim().toLowerCase();
+        return q ? pool.filter(n => n.toLowerCase().includes(q)) : pool;
+      }, [pool, exSearch]);
+
+      const handleSave = () => {
+        const n = sanitize(name.trim()).substring(0, 50);
+        if (!n) return;
+        onSave({ id:`custom_${Date.now()}`, label:n, muscles:selMuscles, defaults:selExercises, custom:true });
+      };
+
+      const iBase = { width:'100%',background:'#1a1a1a',border:'1px solid #2e2e2e',borderRadius:11,
+        padding:'11px 14px',color:'#F0EDE8',fontSize:14,outline:'none',fontFamily:'inherit',
+        transition:'border-color 0.15s' };
+
+      return (
+        <div style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,0.72)',
+          display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+          <div className="slide-up" style={{width:'100%',maxWidth:480,maxHeight:'90vh',
+            background:'#111',borderRadius:'20px 20px 0 0',borderTop:'1px solid #222',
+            display:'flex',flexDirection:'column'}}>
+
+            {/* Header */}
+            <div style={{padding:'10px 20px 14px',borderBottom:'1px solid #1e1e1e',flexShrink:0}}>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
+                <div style={{width:36,height:4,borderRadius:2,background:'#2e2e2e'}}/>
+              </div>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <h2 style={{fontSize:17,fontWeight:700,color:'#F0EDE8'}}>Create Split</h2>
+                <button onClick={onCancel} style={{background:'none',border:'none',cursor:'pointer',
+                  color:'#8A8680',fontSize:13,fontWeight:500}}>Cancel</button>
+              </div>
+            </div>
+
+            <div style={{flex:1,overflowY:'auto',padding:'16px 20px'}}>
+              {/* Name */}
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:11,fontWeight:600,color:'#8A8680',letterSpacing:'0.07em',
+                  textTransform:'uppercase',marginBottom:8}}>Split Name</div>
+                <input type="text" value={name} onChange={e=>setName(e.target.value)}
+                  placeholder="e.g. Push Day, Full Body..." maxLength={50}
+                  autoCapitalize="words" autoCorrect="off"
+                  style={iBase}
+                  onFocus={e=>e.target.style.borderColor='#D4A574'}
+                  onBlur={e=>e.target.style.borderColor='#2e2e2e'}/>
+              </div>
+
+              {/* Target muscles */}
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:11,fontWeight:600,color:'#8A8680',letterSpacing:'0.07em',
+                  textTransform:'uppercase',marginBottom:10}}>Target Muscles</div>
+                <div style={{display:'flex',flexWrap:'wrap',gap:7}}>
+                  {MUSCLE_GROUPS.map(({id,label}) => {
+                    const on = selMuscles.includes(id);
+                    return (
+                      <button key={id} onClick={()=>toggleMuscle(id)} style={{
+                        padding:'7px 14px',borderRadius:20,cursor:'pointer',fontSize:12,fontWeight:600,
+                        transition:'all 0.15s',
+                        background: on?'rgba(212,165,116,0.18)':'#1e1e1e',
+                        color: on?'#D4A574':'#4A4744',
+                        border: `1px solid ${on?'rgba(212,165,116,0.4)':'#2a2a2a'}`,
+                      }}>{label}</button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Default exercises */}
+              <div style={{marginBottom:16}}>
+                <div style={{fontSize:11,fontWeight:600,color:'#8A8680',letterSpacing:'0.07em',
+                  textTransform:'uppercase',marginBottom:10}}>
+                  Default Exercises{selExercises.length > 0 ? ` (${selExercises.length})` : ''}
+                </div>
+                {selExercises.length > 0 && (
+                  <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
+                    {selExercises.map(n => (
+                      <button key={n} onClick={()=>toggleEx(n)} style={{
+                        padding:'4px 8px 4px 10px',borderRadius:20,border:'none',cursor:'pointer',
+                        fontSize:11,fontWeight:500,background:'rgba(212,165,116,0.12)',
+                        color:'#D4A574',display:'flex',alignItems:'center',gap:4}}>
+                        {n}<IconX size={9} color="currentColor"/>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <input type="text" value={exSearch} onChange={e=>setExSearch(e.target.value)}
+                  placeholder="Search exercises..."
+                  style={{...iBase, padding:'9px 13px', fontSize:13, marginBottom:8}}
+                  onFocus={e=>e.target.style.borderColor='#3a3a3a'}
+                  onBlur={e=>e.target.style.borderColor='#2e2e2e'}/>
+                <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:11,
+                  overflow:'hidden',maxHeight:190,overflowY:'auto'}}>
+                  {filtered.length === 0 ? (
+                    <div style={{padding:'14px 16px',fontSize:13,color:'#4A4744',textAlign:'center'}}>
+                      {selMuscles.length===0 ? 'Select muscles to see suggestions' : 'No matches'}
+                    </div>
+                  ) : filtered.map((n,i) => {
+                    const sel = selExercises.includes(n);
+                    return (
+                      <button key={n} onClick={()=>toggleEx(n)}
+                        style={{display:'flex',alignItems:'center',gap:12,width:'100%',
+                          padding:'10px 14px',background:sel?'rgba(212,165,116,0.07)':'none',
+                          border:'none',borderTop:i?'1px solid #1e1e1e':undefined,
+                          cursor:'pointer',textAlign:'left',transition:'background 0.12s'}}>
+                        <div style={{width:16,height:16,borderRadius:5,flexShrink:0,
+                          background:sel?'#D4A574':'transparent',
+                          border:`1.5px solid ${sel?'#D4A574':'#3a3a3a'}`,
+                          display:'flex',alignItems:'center',justifyContent:'center'}}>
+                          {sel&&<IconCheck size={9} color="#0f0f0f"/>}
+                        </div>
+                        <span style={{fontSize:13,color:sel?'#F0EDE8':'#8A8680',fontWeight:sel?500:400}}>
+                          {n}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{height:8}}/>
+            </div>
+
+            {/* Save */}
+            <div style={{padding:'12px 20px',borderTop:'1px solid #1e1e1e',flexShrink:0,
+              paddingBottom:'calc(12px + env(safe-area-inset-bottom, 0px))'}}>
+              <button onClick={handleSave} disabled={!name.trim()} className="press-scale"
+                style={{width:'100%',padding:'14px 0',borderRadius:12,border:'none',
+                  background:name.trim()?'#D4A574':'#2a2a2a',
+                  color:name.trim()?'#0f0f0f':'#4A4744',
+                  fontSize:15,fontWeight:700,cursor:name.trim()?'pointer':'default',
+                  transition:'all 0.2s'}}>
+                Save Split
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // ExerciseManager — add / search / delete exercises in drea/exerciseNames
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -2300,7 +2887,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     // You tab — body weight + personal records
     // ─────────────────────────────────────────────────────────────────────────
 
-    function YouTab({ personalRecordsData, exerciseNamesData }) {
+    function YouTab({ personalRecordsData, exerciseNamesData, workoutsData }) {
       const prCount = personalRecordsData ? Object.values(personalRecordsData).filter(p=>p&&p.name).length : 0;
       const sectionHead = {
         fontSize:12, fontWeight:600, color:'#8A8680',
@@ -2309,6 +2896,12 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       return (
         <div className="fade-in" style={{padding:'20px 20px 8px'}}>
           <h2 style={{fontSize:22,fontWeight:700,color:'#F0EDE8',marginBottom:24}}>You</h2>
+
+          {/* Muscle Activity Heat Map */}
+          <div style={{marginBottom:32}}>
+            <h3 style={{...sectionHead, marginBottom:14}}>Muscle Activity</h3>
+            <MuscleHeatMap workoutsData={workoutsData}/>
+          </div>
 
           {/* Body Weight */}
           <div style={{marginBottom:32}}>
@@ -2674,6 +3267,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const [seeding, setSeeding]             = useState(false);
       const [activeWorkout, setActiveWorkout] = useState(null);
       const [newPRs, setNewPRs]               = useState([]);
+      const [newMilestone, setNewMilestone]   = useState(null);
       const [coachOpen, setCoachOpen]         = useState(false);
       const isOnline                          = useOnlineStatus();
 
@@ -2681,16 +3275,25 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const [workoutsData]         = useFirebase('drea/workouts');
       const [personalRecordsData]  = useFirebase('drea/personalRecords');
       const [bodyWeightsData]      = useFirebase('drea/bodyWeights');
+      const [customSplitsData]     = useFirebase('drea/customSplits');
 
       const exerciseNames = useMemo(() => {
         if (!exerciseNamesData) return ALL_EXERCISE_NAMES;
         return [...new Set(Object.values(exerciseNamesData))].sort();
       }, [exerciseNamesData]);
 
+      const allSplits = useMemo(() => {
+        const custom = customSplitsData
+          ? Object.entries(customSplitsData)
+              .filter(([,s]) => s && s.label)
+              .map(([fbKey, s]) => ({ ...s, fbKey, custom:true }))
+          : [];
+        return [...SPLITS, ...custom];
+      }, [customSplitsData]);
+
       const lastWeightMap   = useMemo(() => buildLastWeightMap(workoutsData), [workoutsData]);
       const lastSessionMap  = useMemo(() => buildLastSessionMap(workoutsData), [workoutsData]);
       const todayWorkout    = workoutsData ? workoutsData[todayKey()] : null;
-      // True only when Firebase has loaded and returned no workouts at all
       const isFirstTime     = workoutsData !== null && Object.keys(workoutsData || {}).length === 0;
 
       useEffect(() => {
@@ -2723,6 +3326,28 @@ Be encouraging, specific, and practical. Don't pad responses.`;
           navigator.vibrate && navigator.vibrate([50, 50, 100]);
           setNewPRs(prs);
         }
+        // Milestone check — compute streak including the just-saved workout
+        const updatedWorkouts = { ...(workoutsData||{}), [todayKey()]: { split: activeWorkout.split.id } };
+        const streak = computeStreak(updatedWorkouts);
+        if (STREAK_MILESTONES.includes(streak)) {
+          const mKey = `week_${streak}`;
+          const snap = await db.ref(`drea/milestones/${mKey}`).once('value');
+          if (!snap.val()) {
+            await fbSet(`drea/milestones/${mKey}`, { weeks: streak, date: todayKey() });
+            setNewMilestone(streak);
+            navigator.vibrate && navigator.vibrate([100, 50, 100, 50, 200]);
+          }
+        }
+      };
+
+      const handleCreateSplit = async (split) => {
+        const key = db.ref('drea/customSplits').push().key;
+        await fbSet(`drea/customSplits/${key}`, { ...split, id: key });
+      };
+
+      const handleDeleteCustomSplit = async (fbKey) => {
+        if (!fbKey) return;
+        await fbRemove(`drea/customSplits/${fbKey}`);
       };
 
       if (seeding) return <SeedingScreen/>;
@@ -2746,10 +3371,15 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                   todayWorkout={todayWorkout}
                   newPRs={newPRs} onDismissPRs={()=>setNewPRs([])}
                   isFirstTime={isFirstTime}
+                  allSplits={allSplits}
+                  onCreateSplit={handleCreateSplit}
+                  onDeleteCustomSplit={handleDeleteCustomSplit}
+                  newMilestone={newMilestone}
+                  onDismissMilestone={()=>setNewMilestone(null)}
                 />
               )}
-              {activeTab==='history'&&<HistoryTab key="history" workoutsData={workoutsData} personalRecordsData={personalRecordsData}/>}
-              {activeTab==='you'&&<YouTab key="you" personalRecordsData={personalRecordsData} exerciseNamesData={exerciseNamesData}/>}
+              {activeTab==='history'&&<HistoryTab key="history" workoutsData={workoutsData} personalRecordsData={personalRecordsData} allSplits={allSplits}/>}
+              {activeTab==='you'&&<YouTab key="you" personalRecordsData={personalRecordsData} exerciseNamesData={exerciseNamesData} workoutsData={workoutsData}/>}
             </main>
             <BottomNav activeTab={activeTab} onTabPress={handleTabPress}/>
           </div>
