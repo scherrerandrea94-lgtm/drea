@@ -598,6 +598,30 @@ Optional enhancements. Build any/all based on available time.
 
 ---
 
+## PHASE 9 — Tools & Insights ✅
+Quality-of-life utilities and training intelligence.
+
+**Plate calculator:**
+- Input target weight → shows exact plates to load per side (assumes 45 lb Olympic bar; 35 lb women's bar toggle)
+- Available plates: 45, 35, 25, 10, 5, 2.5 lbs
+- Visual horizontal barbell diagram with colored plate stack
+- Preset weight buttons (95, 135, 155, 185, 225, 275, 315, 365)
+- Accessible via button in ExerciseBlock during active workout AND as standalone tool in You tab
+
+**Data export:**
+- "Export to CSV" button in You tab
+- One row per set: Date, Split, Exercise, Set#, Weight, Reps, Volume, Duration, Notes
+- Triggers browser download of `drea-workouts.csv`
+
+**Deload week detection:**
+- Analyze last 8 weeks of volume data
+- If streak ≥ 4 weeks AND no light week (< 50% avg) in last 6 weeks AND all last 4 training weeks ≥ 70% of avg → suggest a deload
+- Dismissible card shown on Today tab (suppressed for the rest of the day via localStorage)
+
+**Commit and push.**
+
+---
+
 ## POST-LAUNCH IDEAS (Future Sessions)
 - Apple Health / Google Fit integration for heart rate
 - Spotify integration: track what Andrea listens to during workouts

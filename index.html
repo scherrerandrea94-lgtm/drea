@@ -290,6 +290,27 @@
     // Epley estimated 1-rep max
     const epley = (weight, reps) => reps === 1 ? weight : Math.round(weight * (1 + reps / 30));
 
+    // Plate calculator — returns plates per side for a given target weight
+    function calcPlates(targetLbs, barbellLbs = 45) {
+      const PLATES = [45, 35, 25, 10, 5, 2.5];
+      let rem = Math.round(((targetLbs - barbellLbs) / 2) * 10) / 10;
+      if (rem < 0) return null; // below bar weight
+      const result = [];
+      for (const p of PLATES) {
+        const n = Math.floor(rem / p + 0.001); // float tolerance
+        if (n > 0) {
+          result.push({ weight: p, count: n });
+          rem = Math.round((rem - p * n) * 10) / 10;
+        }
+      }
+      // remaining > 0.1 means target isn't achievable with standard plates
+      return {
+        plates: result,
+        achievable: Math.round((targetLbs - rem * 2) * 10) / 10,
+        exact: Math.abs(rem) <= 0.1,
+      };
+    }
+
     // Return the Sunday that starts the ISO week for a given YYYY-MM-DD key
     function getWeekStart(dateStr) {
       const d = new Date(dateStr + 'T12:00:00');
@@ -356,6 +377,24 @@
         cur.setDate(cur.getDate() - 7);
       }
       return streak;
+    }
+
+    // Deload detection — returns true when a recovery week looks warranted
+    function checkDeloadNeeded(workoutsData) {
+      if (!workoutsData) return false;
+      const streak = computeStreak(workoutsData);
+      if (streak < 4) return false;
+      const weeks = computeWeeklyVolume(workoutsData, 8);
+      const active = weeks.filter(w => w.volume > 0);
+      if (active.length < 4) return false;
+      const avg = active.reduce((s, w) => s + w.volume, 0) / active.length;
+      if (avg === 0) return false;
+      // Any light week in last 6? If so, already had a natural rest
+      const hasLight = weeks.slice(-6).some(w => w.volume > 0 && w.volume < avg * 0.5);
+      if (hasLight) return false;
+      // Last 4 non-zero weeks all at or above 70% of average
+      const last4 = weeks.filter(w => w.volume > 0).slice(-4);
+      return last4.length >= 4 && last4.every(w => w.volume >= avg * 0.7);
     }
 
     // Strip HTML tags from user-entered text (security)
@@ -865,6 +904,45 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // DeloadCard — subtle recovery-week suggestion on Today tab
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function DeloadCard({ onDismiss }) {
+      return (
+        <div className="fade-in" style={{
+          margin:'12px 20px 0',
+          background:'rgba(122,158,126,0.08)',border:'1px solid rgba(122,158,126,0.25)',
+          borderRadius:13,padding:'13px 16px',
+          display:'flex',alignItems:'flex-start',gap:12,
+        }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7A9E7E"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,marginTop:2}}>
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:600,color:'#7A9E7E',marginBottom:3}}>
+              Consider a deload this week
+            </div>
+            <p style={{fontSize:12,color:'#8A8680',lineHeight:1.55,margin:0}}>
+              You've trained hard for 4+ consecutive weeks with no light week.
+              A lower-volume session now can improve recovery and long-term progress.
+            </p>
+          </div>
+          <button onClick={onDismiss}
+            aria-label="Dismiss deload suggestion"
+            style={{background:'none',border:'none',cursor:'pointer',
+              color:'#3a3a3a',padding:4,flexShrink:0,transition:'color 0.15s'}}
+            onMouseEnter={e=>e.currentTarget.style.color='#8A8680'}
+            onMouseLeave={e=>e.currentTarget.style.color='#3a3a3a'}>
+            <IconX size={13} color="currentColor"/>
+          </button>
+        </div>
+      );
+    }
+
     // Share workout card — canvas → PNG → Web Share API
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -936,6 +1014,44 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       ctx.fillText('Logged with Drea', 40, S-26);
 
       return canvas.toDataURL('image/png');
+    }
+
+    function exportWorkoutsCSV(workoutsData, allSplits) {
+      if (!workoutsData) return;
+      const splits = allSplits || SPLITS;
+      const rows = [['Date','Split','Exercise','Set','Weight (lbs)','Reps','Volume (lbs)','Duration (min)','Notes']];
+      Object.entries(workoutsData).sort(([a],[b]) => a.localeCompare(b)).forEach(([date, w]) => {
+        const splitLabel = splits.find(s => s.id === w.split)?.label || w.split || 'Free Workout';
+        const exs = w.exercises ? Object.keys(w.exercises).sort().map(k => w.exercises[k]) : [];
+        if (!exs.length) {
+          rows.push([date, splitLabel, '', '', '', '', '', w.duration||'', w.notes||'']);
+          return;
+        }
+        exs.forEach(ex => {
+          const sets = ex.sets ? Object.keys(ex.sets).sort().map(k => ex.sets[k]) : [];
+          if (!sets.length) {
+            rows.push([date, splitLabel, ex.name||'', '', '', '', '', w.duration||'', w.notes||'']);
+            return;
+          }
+          sets.forEach((s, i) => {
+            const vol = (parseFloat(s.weight)||0) * (parseInt(s.reps)||0);
+            rows.push([
+              date, splitLabel, ex.name||'', i+1,
+              s.weight||'', s.reps||'', vol||'',
+              i===0 ? w.duration||'' : '',
+              i===0 ? (w.notes||'').replace(/\n/g,' ') : '',
+            ]);
+          });
+        });
+      });
+      const csv = rows.map(r =>
+        r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')
+      ).join('\n');
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'drea-workouts.csv'; a.click();
+      URL.revokeObjectURL(url);
     }
 
     async function shareWorkoutCard(workout, dateKey, splitLabel) {
@@ -1252,6 +1368,208 @@ Be encouraging, specific, and practical. Don't pad responses.`;
             <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
           </svg>
           <p style={{color:'#8A8680',fontSize:13}}>Setting up your exercise library...</p>
+        </div>
+      );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PlateCalcSheet — slide-up plate calculator
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function PlateCalcSheet({ initialWeight, onClose }) {
+      const [weight, setWeight] = useState(initialWeight ? String(Math.round(initialWeight)) : '');
+      const [barLbs, setBarLbs] = useState(45);
+
+      const PRESETS = [95, 115, 135, 155, 185, 205, 225, 245, 275, 315, 365];
+      const PLATE_COLORS = {45:'#4a4744',35:'#5a3f3f',25:'#3f4f5a',10:'#3a4a3a',5:'#5a4a3a',2.5:'#333'};
+      // Widths (px) for visual barbell: proportional to plate thickness
+      const PLATE_W = {45:14,35:11,25:9,10:6,5:5,2.5:4};
+      // Heights (half-height above/below bar center) proportional to plate size
+      const PLATE_H = {45:40,35:36,25:30,10:24,5:20,2.5:17};
+
+      const result = useMemo(() => {
+        const w = parseFloat(weight);
+        if (!w || isNaN(w)) return null;
+        return calcPlates(w, barLbs);
+      }, [weight, barLbs]);
+
+      // Build flat plate list for SVG (each plate repeated count times)
+      const flatPlates = result
+        ? result.plates.flatMap(p => Array(p.count).fill(p.weight))
+        : [];
+
+      // SVG dimensions
+      const SH = 90; // SVG height
+      const centerY = SH / 2;
+      const barY = centerY - 3;
+      const barH = 6;
+      const SVG_W = 300;
+      const barX1 = 20, barX2 = SVG_W - 20; // full bar
+      const sleeveW = 18; // left/right stub
+      const collarX_L = barX1 + sleeveW; // plates start here (left side)
+      const collarX_R = barX2 - sleeveW; // right collar
+
+      // Left plates: stack from collarX_L outward (left)
+      let leftCursor = collarX_L;
+      const leftPlateRects = flatPlates.map(p => {
+        const pw = PLATE_W[p] || 6;
+        const x = leftCursor - pw;
+        leftCursor = x;
+        return { x, p };
+      });
+
+      // Right plates: mirror (stack from collarX_R outward right)
+      let rightCursor = collarX_R;
+      const rightPlateRects = flatPlates.map(p => {
+        const pw = PLATE_W[p] || 6;
+        const x = rightCursor;
+        rightCursor += pw;
+        return { x, p };
+      });
+
+      const inputStyle = {
+        background:'#1a1a1a',border:'1px solid #2e2e2e',borderRadius:11,
+        padding:'12px 16px',color:'#F0EDE8',fontSize:22,fontWeight:700,
+        outline:'none',fontVariantNumeric:'tabular-nums',width:'100%',
+        textAlign:'center',transition:'border-color 0.15s',fontFamily:'inherit',
+      };
+
+      return (
+        <div style={{position:'fixed',inset:0,zIndex:100,background:'rgba(0,0,0,0.7)',
+          display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+          <div className="slide-up" style={{width:'100%',maxWidth:480,
+            background:'#111',borderRadius:'20px 20px 0 0',borderTop:'1px solid #222',
+            paddingBottom:'calc(20px + env(safe-area-inset-bottom, 0px))'}}>
+
+            {/* Handle + header */}
+            <div style={{padding:'10px 20px 14px',borderBottom:'1px solid #1e1e1e'}}>
+              <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
+                <div style={{width:36,height:4,borderRadius:2,background:'#2e2e2e'}}/>
+              </div>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                <h2 style={{fontSize:16,fontWeight:700,color:'#F0EDE8'}}>Plate Calculator</h2>
+                <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',
+                  color:'#8A8680',padding:4}}>
+                  <IconX size={16} color="currentColor"/>
+                </button>
+              </div>
+            </div>
+
+            <div style={{padding:'18px 20px'}}>
+              {/* Weight input */}
+              <input type="number" inputMode="decimal" value={weight}
+                onChange={e => setWeight(e.target.value)} placeholder="225"
+                style={inputStyle}
+                onFocus={e => e.target.style.borderColor='#D4A574'}
+                onBlur={e => e.target.style.borderColor='#2e2e2e'}
+              />
+              <div style={{textAlign:'center',fontSize:11,color:'#4A4744',marginTop:4}}>lbs target weight</div>
+
+              {/* Barbell toggle */}
+              <div style={{display:'flex',justifyContent:'center',marginTop:14,gap:6}}>
+                {[[45,'Olympic (45 lbs)'],[35,"Women's (35 lbs)"]].map(([w,label]) => (
+                  <button key={w} onClick={() => setBarLbs(w)} style={{
+                    padding:'6px 14px',borderRadius:20,cursor:'pointer',
+                    fontSize:11,fontWeight:600,transition:'all 0.15s',
+                    background: barLbs===w ? 'rgba(212,165,116,0.15)' : '#1e1e1e',
+                    color: barLbs===w ? '#D4A574' : '#4A4744',
+                    border: `1px solid ${barLbs===w ? 'rgba(212,165,116,0.35)' : '#2a2a2a'}`,
+                  }}>{label}</button>
+                ))}
+              </div>
+
+              {/* Preset buttons */}
+              <div style={{display:'flex',flexWrap:'wrap',gap:6,marginTop:16,justifyContent:'center'}}>
+                {PRESETS.map(p => (
+                  <button key={p} onClick={() => setWeight(String(p))} style={{
+                    padding:'5px 11px',borderRadius:8,border:'1px solid #2e2e2e',
+                    background:weight===String(p)?'rgba(212,165,116,0.12)':'transparent',
+                    color:weight===String(p)?'#D4A574':'#8A8680',
+                    fontSize:12,fontWeight:500,cursor:'pointer',transition:'all 0.15s',
+                  }}>{p}</button>
+                ))}
+              </div>
+
+              {/* Result */}
+              {result && (
+                <div style={{marginTop:20}}>
+                  {/* Plate list text */}
+                  <div style={{textAlign:'center',marginBottom:12}}>
+                    {result.plates.length === 0 ? (
+                      <span style={{fontSize:13,color:'#8A8680'}}>Bar only ({barLbs} lbs)</span>
+                    ) : (
+                      <>
+                        <div style={{fontSize:13,color:'#8A8680',marginBottom:4}}>Each side:</div>
+                        <div style={{display:'flex',flexWrap:'wrap',gap:6,justifyContent:'center'}}>
+                          {result.plates.map(({weight:pw, count}) =>
+                            Array(count).fill(pw).map((p, i) => (
+                              <div key={`${pw}-${i}`} style={{
+                                padding:'4px 11px',borderRadius:8,
+                                background: PLATE_COLORS[p] || '#333',
+                                border:'1px solid rgba(255,255,255,0.06)',
+                                fontSize:13,fontWeight:700,
+                                color:p>=25?'#F0EDE8':'#D4A574',
+                                fontVariantNumeric:'tabular-nums',
+                              }}>{p}</div>
+                            ))
+                          )}
+                        </div>
+                        <div style={{fontSize:20,fontWeight:700,color:result.exact?'#D4A574':'#C47070',
+                          fontVariantNumeric:'tabular-nums',marginTop:10}}>
+                          {result.exact ? `= ${result.achievable} lbs ✓` : `≈ ${result.achievable} lbs`}
+                        </div>
+                        {!result.exact && (
+                          <div style={{fontSize:11,color:'#4A4744',marginTop:2}}>
+                            Closest achievable with standard plates
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {/* Visual barbell */}
+                  {result.plates.length > 0 && (
+                    <svg viewBox={`0 0 ${SVG_W} ${SH}`} width="100%" style={{display:'block',marginTop:4}}>
+                      {/* Bar */}
+                      <rect x={barX1} y={barY} width={barX2-barX1} height={barH} rx="3" fill="#3a3a3a"/>
+                      {/* Sleeves (thicker ends) */}
+                      <rect x={barX1} y={centerY-8} width={sleeveW} height={16} rx="2" fill="#4a4744"/>
+                      <rect x={barX2-sleeveW} y={centerY-8} width={sleeveW} height={16} rx="2" fill="#4a4744"/>
+                      {/* Left plates */}
+                      {leftPlateRects.map(({x, p}, i) => {
+                        const ph = PLATE_H[p] || 20;
+                        const pw = PLATE_W[p] || 6;
+                        return (
+                          <g key={`l${i}`}>
+                            <rect x={x} y={centerY-ph} width={pw} height={ph*2} rx="2"
+                              fill={PLATE_COLORS[p]||'#333'} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"/>
+                          </g>
+                        );
+                      })}
+                      {/* Right plates */}
+                      {rightPlateRects.map(({x, p}, i) => {
+                        const ph = PLATE_H[p] || 20;
+                        const pw = PLATE_W[p] || 6;
+                        return (
+                          <g key={`r${i}`}>
+                            <rect x={x} y={centerY-ph} width={pw} height={ph*2} rx="2"
+                              fill={PLATE_COLORS[p]||'#333'} stroke="rgba(255,255,255,0.06)" strokeWidth="0.5"/>
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  )}
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!result && weight && parseFloat(weight) <= barLbs && (
+                <div style={{textAlign:'center',marginTop:16,fontSize:13,color:'#4A4744'}}>
+                  Enter a weight above {barLbs} lbs
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       );
     }
@@ -1612,9 +1930,10 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     }
 
     function ExerciseBlock({ exercise, onUpdate, onRemove, onSetComplete, exerciseNames, lastWeightMap, lastSessionMap }) {
-      const [newSetId, setNewSetId]     = useState(null);
-      const [flashSetId, setFlashSetId] = useState(null);
-      const flashTimer                  = useRef(null);
+      const [newSetId, setNewSetId]         = useState(null);
+      const [flashSetId, setFlashSetId]     = useState(null);
+      const [plateCalcOpen, setPlateCalcOpen] = useState(false);
+      const flashTimer                      = useRef(null);
       const onUpdateRef                 = useRef(onUpdate);
       const exerciseRef                 = useRef(exercise);
       useEffect(() => { onUpdateRef.current = onUpdate; exerciseRef.current = exercise; });
@@ -1660,59 +1979,83 @@ Be encouraging, specific, and practical. Don't pad responses.`;
         onUpdate({...exercise, sets:[...exercise.sets,{id,weight:w,reps:''}]});
       };
       return (
-        <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,padding:'14px 14px 12px',marginBottom:12}}>
-          <div style={{display:'flex',gap:8,marginBottom:8}}>
-            <div style={{flex:1}}>
-              <ExerciseInput value={exercise.name}
-                onChange={name=>onUpdate({...exercise,name})}
-                exerciseNames={exerciseNames} placeholder="Exercise name..."/>
+        <>
+          <div style={{background:'#1a1a1a',border:'1px solid #262626',borderRadius:14,padding:'14px 14px 12px',marginBottom:12}}>
+            <div style={{display:'flex',gap:8,marginBottom:8}}>
+              <div style={{flex:1}}>
+                <ExerciseInput value={exercise.name}
+                  onChange={name=>onUpdate({...exercise,name})}
+                  exerciseNames={exerciseNames} placeholder="Exercise name..."/>
+              </div>
+              <button onClick={onRemove}
+                aria-label={`Remove ${exercise.name || 'exercise'}`}
+                style={{background:'#242424',border:'1px solid #2e2e2e',borderRadius:9,
+                  color:'#8A8680',cursor:'pointer',padding:'0 10px',display:'flex',
+                  alignItems:'center',flexShrink:0,transition:'color 0.15s'}}
+                onMouseEnter={e=>e.currentTarget.style.color='#C47070'}
+                onMouseLeave={e=>e.currentTarget.style.color='#8A8680'}>
+                <IconX size={14} color="currentColor"/>
+              </button>
             </div>
-            <button onClick={onRemove}
-              aria-label={`Remove ${exercise.name || 'exercise'}`}
-              style={{background:'#242424',border:'1px solid #2e2e2e',borderRadius:9,
-                color:'#8A8680',cursor:'pointer',padding:'0 10px',display:'flex',
-                alignItems:'center',flexShrink:0,transition:'color 0.15s'}}
-              onMouseEnter={e=>e.currentTarget.style.color='#C47070'}
-              onMouseLeave={e=>e.currentTarget.style.color='#8A8680'}>
-              <IconX size={14} color="currentColor"/>
-            </button>
+            {lastSessionMap && (
+              <OverloadHint
+                exerciseName={exercise.name}
+                lastSessionMap={lastSessionMap}
+                onApply={() => {
+                  const sugg = getOverloadSuggestion(lastSessionMap[exercise.name]);
+                  if (!sugg) return;
+                  onUpdate({...exercise, sets: exercise.sets.map((s,i) =>
+                    i===0 ? {...s, weight:String(sugg.suggestedWeight), reps:String(sugg.suggestedReps)} : s
+                  )});
+                }}
+              />
+            )}
+            {exercise.sets.map((set,i)=>(
+              <SetRow key={set.id} setNum={i+1} set={set}
+                onChange={(f,v)=>handleSetChange(set.id,f,v)}
+                onRemove={()=>{ if(exercise.sets.length>1) onUpdate({...exercise,sets:exercise.sets.filter(s=>s.id!==set.id)}); }}
+                autoFocusWeight={set.id===newSetId}
+                isFlashing={set.id===flashSetId}
+                onVoiceInput={voiceSupported ? () => startListening(set.id) : undefined}
+                isVoiceListening={listeningForId === set.id}
+              />
+            ))}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
+              <div style={{display:'flex',gap:7}}>
+                <button onClick={handleAddSet} className="press-scale"
+                  style={{display:'flex',alignItems:'center',gap:6,background:'#242424',
+                    border:'1px solid #2e2e2e',borderRadius:8,padding:'7px 12px',
+                    color:'#8A8680',fontSize:13,fontWeight:500,cursor:'pointer',
+                    transition:'color 0.15s,border-color 0.15s'}}
+                  onMouseEnter={e=>{e.currentTarget.style.color='#D4A574';e.currentTarget.style.borderColor='#D4A574';}}
+                  onMouseLeave={e=>{e.currentTarget.style.color='#8A8680';e.currentTarget.style.borderColor='#2e2e2e';}}>
+                  <IconPlus size={12} color="currentColor"/>Add Set
+                </button>
+                <button onClick={() => setPlateCalcOpen(true)} className="press-scale"
+                  aria-label="Open plate calculator"
+                  title="Plate calculator"
+                  style={{display:'flex',alignItems:'center',gap:5,background:'#242424',
+                    border:'1px solid #2e2e2e',borderRadius:8,padding:'7px 10px',
+                    color:'#8A8680',fontSize:12,fontWeight:500,cursor:'pointer',
+                    transition:'color 0.15s,border-color 0.15s'}}
+                  onMouseEnter={e=>{e.currentTarget.style.color='#D4A574';e.currentTarget.style.borderColor='#D4A574';}}
+                  onMouseLeave={e=>{e.currentTarget.style.color='#8A8680';e.currentTarget.style.borderColor='#2e2e2e';}}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 4v16M18 4v16"/><path d="M4 7h4M16 7h4M4 17h4M16 17h4"/><line x1="8" y1="12" x2="16" y2="12"/>
+                  </svg>
+                  Plates
+                </button>
+              </div>
+              {exVolume>0&&<span style={{fontSize:12,color:'#4A4744',fontVariantNumeric:'tabular-nums'}}>{exVolume.toLocaleString()} lbs</span>}
+            </div>
           </div>
-          {lastSessionMap && (
-            <OverloadHint
-              exerciseName={exercise.name}
-              lastSessionMap={lastSessionMap}
-              onApply={() => {
-                const sugg = getOverloadSuggestion(lastSessionMap[exercise.name]);
-                if (!sugg) return;
-                onUpdate({...exercise, sets: exercise.sets.map((s,i) =>
-                  i===0 ? {...s, weight:String(sugg.suggestedWeight), reps:String(sugg.suggestedReps)} : s
-                )});
-              }}
+          {plateCalcOpen && (
+            <PlateCalcSheet
+              initialWeight={exercise.sets.reduce((mx,s) => Math.max(mx, parseFloat(s.weight)||0), 0) || undefined}
+              onClose={() => setPlateCalcOpen(false)}
             />
           )}
-          {exercise.sets.map((set,i)=>(
-            <SetRow key={set.id} setNum={i+1} set={set}
-              onChange={(f,v)=>handleSetChange(set.id,f,v)}
-              onRemove={()=>{ if(exercise.sets.length>1) onUpdate({...exercise,sets:exercise.sets.filter(s=>s.id!==set.id)}); }}
-              autoFocusWeight={set.id===newSetId}
-              isFlashing={set.id===flashSetId}
-              onVoiceInput={voiceSupported ? () => startListening(set.id) : undefined}
-              isVoiceListening={listeningForId === set.id}
-            />
-          ))}
-          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:6}}>
-            <button onClick={handleAddSet} className="press-scale"
-              style={{display:'flex',alignItems:'center',gap:6,background:'#242424',
-                border:'1px solid #2e2e2e',borderRadius:8,padding:'7px 12px',
-                color:'#8A8680',fontSize:13,fontWeight:500,cursor:'pointer',
-                transition:'color 0.15s,border-color 0.15s'}}
-              onMouseEnter={e=>{e.currentTarget.style.color='#D4A574';e.currentTarget.style.borderColor='#D4A574';}}
-              onMouseLeave={e=>{e.currentTarget.style.color='#8A8680';e.currentTarget.style.borderColor='#2e2e2e';}}>
-              <IconPlus size={12} color="currentColor"/>Add Set
-            </button>
-            {exVolume>0&&<span style={{fontSize:12,color:'#4A4744',fontVariantNumeric:'tabular-nums'}}>{exVolume.toLocaleString()} lbs</span>}
-          </div>
-        </div>
+        </>
       );
     }
 
@@ -1923,7 +2266,18 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       const [selSplit, setSelSplit]        = useState(null);
       const [pickerEx, setPickerEx]       = useState([]);
       const [showCreateSplit, setShowCS]  = useState(false);
+      const [deloadDismissed, setDeloadDismissed] = useState(
+        () => localStorage.getItem('drea_deload_dismissed') === '1'
+      );
       const freq = useMemo(() => buildExerciseFrequency(workoutsData), [workoutsData]);
+      const showDeload = useMemo(
+        () => !deloadDismissed && checkDeloadNeeded(workoutsData),
+        [deloadDismissed, workoutsData]
+      );
+      const handleDismissDeload = () => {
+        localStorage.setItem('drea_deload_dismissed', '1');
+        setDeloadDismissed(true);
+      };
 
       if (activeWorkout) {
         return <ActiveWorkoutLogger activeWorkout={activeWorkout} lastWeightMap={lastWeightMap}
@@ -1967,6 +2321,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
       return (
         <div className="fade-in">
           <WeeklyStatsRow workoutsData={workoutsData}/>
+          {showDeload && <DeloadCard onDismiss={handleDismissDeload}/>}
           {todayWorkout
             ? <TodaySummary workoutKey={todayKey()} workout={todayWorkout}
                 newPRs={newPRs} onDismissPRs={onDismissPRs}
@@ -2887,12 +3242,21 @@ Be encouraging, specific, and practical. Don't pad responses.`;
     // You tab — body weight + personal records
     // ─────────────────────────────────────────────────────────────────────────
 
-    function YouTab({ personalRecordsData, exerciseNamesData, workoutsData }) {
+    function YouTab({ personalRecordsData, exerciseNamesData, workoutsData, allSplits }) {
       const prCount = personalRecordsData ? Object.values(personalRecordsData).filter(p=>p&&p.name).length : 0;
+      const [plateSheetOpen, setPlateSheetOpen] = useState(false);
+      const [exportDone, setExportDone] = useState(false);
       const sectionHead = {
         fontSize:12, fontWeight:600, color:'#8A8680',
         letterSpacing:'0.07em', textTransform:'uppercase',
       };
+
+      const handleExport = () => {
+        exportWorkoutsCSV(workoutsData, allSplits);
+        setExportDone(true);
+        setTimeout(() => setExportDone(false), 2200);
+      };
+
       return (
         <div className="fade-in" style={{padding:'20px 20px 8px'}}>
           <h2 style={{fontSize:22,fontWeight:700,color:'#F0EDE8',marginBottom:24}}>You</h2>
@@ -2920,10 +3284,64 @@ Be encouraging, specific, and practical. Don't pad responses.`;
             <PRBoard personalRecordsData={personalRecordsData}/>
           </div>
 
+          {/* Tools */}
+          <div style={{marginBottom:32}}>
+            <h3 style={{...sectionHead, marginBottom:14}}>Tools</h3>
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              {/* Plate Calculator */}
+              <button onClick={() => setPlateSheetOpen(true)} className="press-scale"
+                style={{display:'flex',alignItems:'center',gap:14,background:'#1a1a1a',
+                  border:'1px solid #262626',borderRadius:14,padding:'15px 16px',
+                  cursor:'pointer',textAlign:'left',width:'100%',transition:'border-color 0.15s'}}
+                onMouseEnter={e=>e.currentTarget.style.borderColor='#D4A574'}
+                onMouseLeave={e=>e.currentTarget.style.borderColor='#262626'}>
+                <div style={{width:36,height:36,borderRadius:10,background:'rgba(212,165,116,0.1)',
+                  display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D4A574" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 4v16M18 4v16"/><path d="M4 7h4M16 7h4M4 17h4M16 17h4"/><line x1="8" y1="12" x2="16" y2="12"/>
+                  </svg>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:600,color:'#F0EDE8'}}>Plate Calculator</div>
+                  <div style={{fontSize:12,color:'#8A8680',marginTop:2}}>Find the right plate combo for any weight</div>
+                </div>
+                <IconChevronRight size={15} color="#4A4744"/>
+              </button>
+
+              {/* Data Export */}
+              <button onClick={handleExport} className="press-scale"
+                disabled={!workoutsData || exportDone}
+                style={{display:'flex',alignItems:'center',gap:14,background:'#1a1a1a',
+                  border:'1px solid #262626',borderRadius:14,padding:'15px 16px',
+                  cursor:(!workoutsData||exportDone)?'default':'pointer',textAlign:'left',
+                  width:'100%',transition:'border-color 0.15s',opacity:!workoutsData?0.5:1}}
+                onMouseEnter={e=>{if(workoutsData&&!exportDone)e.currentTarget.style.borderColor='#D4A574';}}
+                onMouseLeave={e=>e.currentTarget.style.borderColor='#262626'}>
+                <div style={{width:36,height:36,borderRadius:10,
+                  background:exportDone?'rgba(122,158,126,0.12)':'rgba(212,165,116,0.1)',
+                  display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={exportDone?'#7A9E7E':'#D4A574'} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:600,color:exportDone?'#7A9E7E':'#F0EDE8'}}>
+                    {exportDone ? 'Downloaded!' : 'Export Workout Data'}
+                  </div>
+                  <div style={{fontSize:12,color:'#8A8680',marginTop:2}}>
+                    {workoutsData ? `${Object.keys(workoutsData).length} workout${Object.keys(workoutsData).length===1?'':'s'} as CSV` : 'No workouts yet'}
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Exercise Manager */}
           <div style={{marginBottom:16}}>
             <ExerciseManager exerciseNamesData={exerciseNamesData}/>
           </div>
+
+          {plateSheetOpen && <PlateCalcSheet onClose={() => setPlateSheetOpen(false)}/>}
         </div>
       );
     }
@@ -3379,7 +3797,7 @@ Be encouraging, specific, and practical. Don't pad responses.`;
                 />
               )}
               {activeTab==='history'&&<HistoryTab key="history" workoutsData={workoutsData} personalRecordsData={personalRecordsData} allSplits={allSplits}/>}
-              {activeTab==='you'&&<YouTab key="you" personalRecordsData={personalRecordsData} exerciseNamesData={exerciseNamesData} workoutsData={workoutsData}/>}
+              {activeTab==='you'&&<YouTab key="you" personalRecordsData={personalRecordsData} exerciseNamesData={exerciseNamesData} workoutsData={workoutsData} allSplits={allSplits}/>}
             </main>
             <BottomNav activeTab={activeTab} onTabPress={handleTabPress}/>
           </div>
